@@ -154,9 +154,8 @@
     <div class="kbRow" id="row4"><button class="wide">Shift</button><button>Z</button><button>X</button><button>C</button><button>V</button><button>B</button><button>N</button><button>M</button><button>,</button><button>.</button><button>/</button><button>↑</button></div>
     <div class="kbRow" id="row5"><button class="wide">Ctrl</button><button class="extraWide">␣</button><button class="wide">Alt</button><button>←</button><button>↓</button><button>→</button></div>
   </div>
-  <!-- Two cursor rings (as in the original markup) -->
-  <div id="cursorRing" class="hidden"></div>
-  <div id="cursorRing" class="hidden"></div>
+  <!-- Single cursor ring (visible by default). Removing the hidden class fixes the bug where the cursor ring never appears. -->
+  <div id="cursorRing"></div>
 
   <!-- ============= SnazyCam Container ============= -->
   <!-- The webcam and overlay will live here. Visibility is toggled by driver.js. -->
