@@ -2,14 +2,14 @@
   KnowsNav — Integrated EyeWrite + SnazyCam Interface
 
   This page composes the entire KnowsNav application by combining the
-  unmodified EyeWrite UI with the SnazyCam nose‑tracking module. The
+  unmodified EyeWrite UI with the SnazyCam nose-tracking module. The
   EyeWrite code lives under `eyewrite/` and SnazyCam lives under
   `snazycam/`. Neither codebase is altered; integration happens via
   scripts loaded here and in driver.js.
 
   Key layout features:
     • EyeWrite remains the primary interface, providing the writing
-      canvas, on‑screen keyboard, dwell ring, voice controls, etc.
+      canvas, on-screen keyboard, dwell ring, voice controls, etc.
     • SnazyCam’s webcam feed and overlay (video + canvas) are
       contained within #snazycam-container. They are hidden by default
       and shown when the user toggles the SnazyCam Controls button.
@@ -25,26 +25,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>KnowsNav – EyeWrite with SnazyCam Integration</title>
+
   <!-- EyeWrite stylesheet (unmodified) -->
-  <link rel="stylesheet" href="eyewrite/style.css">
+  <link rel="stylesheet" href="eyewrite/style.css" />
+
   <style>
+    /*
+      SnazyCam runs in the background by default, and is only brought
+      above EyeWrite when the user toggles controls.
+
+      driver.js will dynamically change:
+        - display
+        - z-index
+        - pointer-events
+      so we keep the default state “safe” here.
+    */
+
     /* Container for SnazyCam video and canvas; hidden by default */
     #snazycam-container {
       position: fixed;
       inset: 0;
-      z-index: 50;
-      /* Start hidden; driver.js toggles display */
-      display: none;
+      z-index: 50;          /* default: behind EyeWrite */
+      display: none;        /* driver.js toggles */
+      pointer-events: none; /* prevents stealing clicks when hidden */
     }
+
     #snazycam-container video,
     #snazycam-container canvas {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
+
     /* Overlay button for toggling SnazyCam */
     #snazycam-toggle-btn {
       position: fixed;
@@ -57,13 +72,13 @@
       color: #000;
       font-weight: bold;
       cursor: pointer;
-      z-index: 100; /* above everything */
+      z-index: 100; /* Always above everything */
       box-shadow: 0 0 8px #00ffff88;
     }
   </style>
 </head>
-<body>
 
+<body>
   <!-- ============= EyeWrite UI (copied verbatim) ============= -->
   <!-- We embed the original EyeWrite markup here to preserve its
        functionality. Only relative paths have been updated. -->
@@ -75,6 +90,7 @@
       <option value="Verdana">Verdana</option>
       <option value="Georgia">Georgia</option>
     </select>
+
     <select id="fontSize">
       <option value="12">12</option>
       <option value="14">14</option>
@@ -82,6 +98,7 @@
       <option value="20">20</option>
       <option value="24">24</option>
     </select>
+
     <button id="boldBtn"><b>B</b></button>
     <button id="italicBtn"><i>I</i></button>
     <button id="underlineBtn"><u>U</u></button>
@@ -90,18 +107,21 @@
     <button id="cursorText">Text ✎</button>
     <button id="kbToggle">⚡ QuickType</button>
     <button id="hoverToggle" class="active">🌀 Hover ON</button>
+
     <button id="voiceBtn">Voice Modulation</button>
     <div id="voiceControls" class="hidden">
       <label>Voice:</label>
       <select id="voiceSelect"></select>
       <label>Pitch:</label>
-      <input type="range" id="pitchSlider" min="0.5" max="2" value="1" step="0.1">
+      <input type="range" id="pitchSlider" min="0.5" max="2" value="1" step="0.1" />
       <label>Rate:</label>
-      <input type="range" id="rateSlider" min="0.5" max="2" value="1" step="0.1">
+      <input type="range" id="rateSlider" min="0.5" max="2" value="1" step="0.1" />
       <button id="previewVoice">Preview</button>
     </div>
+
     <button id="searchBtn">🔍 Search</button>
     <button id="speakBtn">🔊 Speak</button>
+
     <div class="saveWrapper">
       <button id="saveBtn">💾 Save</button>
       <div id="saveMenu" class="hidden">
@@ -110,51 +130,66 @@
         <button data-format="pdf">PDF</button>
       </div>
     </div>
+
     <button id="instructionsBtn">❔ Instructions</button>
   </div>
+
   <div id="instructionsModal" class="hidden">
     <div class="modalContent" id="instructionsContent">
       <h2>👁️ EyeWrite — Quick Start Guide</h2>
       <p>
-        Welcome to <b>EyeWrite</b> — a hands-free writing and communication tool.<br><br>
-        <b>Navigation:</b><br>
-        • Hover for 1.5 s to click (Precision Mode)<br>
-        • Hover for 0.7 s or single blink to click (QuickType Mode)<br><br>
-        <b>Controls:</b><br>
-        • ⚡ <b>QuickType</b> — faster hover speed<br>
-        • 🌀 <b>Hover ON/OFF</b> — toggle dwell clicking<br>
-        • 🔊 <b>Speak</b> — text-to-speech output<br>
-        • 💾 <b>Save</b> — export text (TXT, DOCX, PDF)<br>
-        • 🔍 <b>Search</b> — open half-screen web results<br><br>
-        <b>Keyboard:</b><br>
-        • Type by gaze or blink selection<br>
-        • “Caps” toggles uppercase, “Shift” applies one-time uppercase<br><br>
-        <b>Voice Modulation:</b><br>
-        • Adjust pitch, rate, and tone live<br><br>
-        <b>Exit:</b><br>
-        • Hover away for 0.7 s or press ESC to close<br><br>
-        EyeWrite is built for accessibility, freedom, and creative expression.<br>
+        Welcome to <b>EyeWrite</b> — a hands-free writing and communication tool.<br /><br />
+        <b>Navigation:</b><br />
+        • Hover for 1.5 s to click (Precision Mode)<br />
+        • Hover for 0.7 s or single blink to click (QuickType Mode)<br /><br />
+        <b>Controls:</b><br />
+        • ⚡ <b>QuickType</b> — faster hover speed<br />
+        • 🌀 <b>Hover ON/OFF</b> — toggle dwell clicking<br />
+        • 🔊 <b>Speak</b> — text-to-speech output<br />
+        • 💾 <b>Save</b> — export text (TXT, DOCX, PDF)<br />
+        • 🔍 <b>Search</b> — open half-screen web results<br /><br />
+        <b>Keyboard:</b><br />
+        • Type by gaze or blink selection<br />
+        • “Caps” toggles uppercase, “Shift” applies one-time uppercase<br /><br />
+        <b>Voice Modulation:</b><br />
+        • Adjust pitch, rate, and tone live<br /><br />
+        <b>Exit:</b><br />
+        • Hover away for 0.7 s or press ESC to close<br /><br />
+        EyeWrite is built for accessibility, freedom, and creative expression.<br />
         <i>“Where the hands may rest, the eyes and voice continue to speak.”</i>
       </p>
       <button id="closeInstructions">Close</button>
     </div>
   </div>
+
   <div id="textContainer">
     <button id="scrollUp" class="scrollBtn">▲ Scroll Up</button>
     <div id="textArea" contenteditable="true"></div>
     <button id="scrollDown" class="scrollBtn">▼ Scroll Down</button>
   </div>
+
   <div id="keyboard">
     <div id="kbHeader">
       <span id="kbMode">🕊 Precision</span>
     </div>
-    <div class="kbRow" id="row1"><button>`</button><button>1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button><button>8</button><button>9</button><button>0</button><button>-</button><button>=</button><button class="wide">⌫</button></div>
-    <div class="kbRow" id="row2"><button class="wide">Tab</button><button>Q</button><button>W</button><button>E</button><button>R</button><button>T</button><button>Y</button><button>U</button><button>I</button><button>O</button><button>P</button><button>[</button><button>]</button><button>\</button></div>
-    <div class="kbRow" id="row3"><button class="wide">Caps</button><button>A</button><button>S</button><button>D</button><button>F</button><button>G</button><button>H</button><button>J</button><button>K</button><button>L</button><button>;</button><button>'</button><button class="wide">↵</button></div>
-    <div class="kbRow" id="row4"><button class="wide">Shift</button><button>Z</button><button>X</button><button>C</button><button>V</button><button>B</button><button>N</button><button>M</button><button>,</button><button>.</button><button>/</button><button>↑</button></div>
-    <div class="kbRow" id="row5"><button class="wide">Ctrl</button><button class="extraWide">␣</button><button class="wide">Alt</button><button>←</button><button>↓</button><button>→</button></div>
+    <div class="kbRow" id="row1">
+      <button>`</button><button>1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button><button>8</button><button>9</button><button>0</button><button>-</button><button>=</button><button class="wide">⌫</button>
+    </div>
+    <div class="kbRow" id="row2">
+      <button class="wide">Tab</button><button>Q</button><button>W</button><button>E</button><button>R</button><button>T</button><button>Y</button><button>U</button><button>I</button><button>O</button><button>P</button><button>[</button><button>]</button><button>\</button>
+    </div>
+    <div class="kbRow" id="row3">
+      <button class="wide">Caps</button><button>A</button><button>S</button><button>D</button><button>F</button><button>G</button><button>H</button><button>J</button><button>K</button><button>L</button><button>;</button><button>'</button><button class="wide">↵</button>
+    </div>
+    <div class="kbRow" id="row4">
+      <button class="wide">Shift</button><button>Z</button><button>X</button><button>C</button><button>V</button><button>B</button><button>N</button><button>M</button><button>,</button><button>.</button><button>/</button><button>↑</button>
+    </div>
+    <div class="kbRow" id="row5">
+      <button class="wide">Ctrl</button><button class="extraWide">␣</button><button class="wide">Alt</button><button>←</button><button>↓</button><button>→</button>
+    </div>
   </div>
-  <!-- Single cursor ring (visible by default). Removing the hidden class fixes the bug where the cursor ring never appears. -->
+
+  <!-- Single cursor ring (visible by default). -->
   <div id="cursorRing"></div>
 
   <!-- ============= SnazyCam Container ============= -->
