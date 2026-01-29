@@ -1,0 +1,47 @@
+KnowsNav License v1.0
+Free to Use – Proprietary Software
+
+Copyright © 2026
+Elisha B. Parker
+All rights reserved.
+
+This software, known as “KnowsNav”, is provided free of charge for personal,
+educational, and non-commercial use.
+
+Permission is granted to run, use, and evaluate this software without payment.
+
+The following restrictions apply:
+
+1. You MAY NOT copy, modify, fork, repackage, translate, or redistribute this
+   software or any portion of its source code.
+
+2. You MAY NOT create derivative works based on this software or its
+   architecture without explicit written permission from the copyright holder.
+
+3. You MAY NOT use this software, or any derivative concept, for commercial
+   purposes, resale, or inclusion in a paid product or service.
+
+4. You MAY NOT publish this software or its source code as part of another
+   repository, project, framework, or distribution.
+
+5. You MAY NOT remove, obscure, or alter copyright notices, license text,
+   or attribution.
+
+This software is NOT open source.
+
+Support for this project is voluntary. If you find KnowsNav valuable, you are
+encouraged (but not required) to support its development through official
+channels designated by the author.
+
+For licensing, redistribution permissions, or commercial inquiries, contact:
+
+elishaparker@hotmail.com
+
+THIS SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
