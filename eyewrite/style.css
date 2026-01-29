@@ -1,0 +1,349 @@
+/* ============================================================
+       EyeWrite v1.6.4 — Fixed Layout Stability Patch
+       Keeps 60/40 viewport ratio and internal scroll behavior.
+       ============================================================ */
+
+    body {
+      margin: 0;
+      background: #111;
+      color: #eee;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ================= Toolbar & Buttons ================= */
+    #toolbar, #controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      background: #222;
+      border-bottom: 1px solid #333;
+    }
+
+    button, select, input {
+      background: #333;
+      color: #fff;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.15s ease, box-shadow 0.15s ease;
+    }
+    button:hover {
+      background: #444;
+      box-shadow: 0 0 5px rgba(255,255,255,0.2);
+    }
+
+    /* ================= Text Area + Scroll Buttons (v1.6.4) ================= 
+*/
+    #quickTypeBtn {
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.15s ease, box-shadow 0.15s ease;
+    }
+    #quickTypeBtn:hover {
+      background: #555;
+      box-shadow: 0 0 5px rgba(255,255,255,0.2);
+    }
+
+    /* ================= Text Area + Scroll Buttons (v1.6.5) ================= 
+*/
+    #textContainer {
+      position: relative;
+      flex: none;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      height: calc(100vh - 36vh - 64px); /* viewport minus keyboard + toolbar */
+      min-height: calc(100vh - 36vh - 64px);
+      max-height: calc(100vh - 36vh - 64px);
+      background: #181818;
+      border-top: 1px solid #333;
+      border-bottom: 1px solid #333;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    #textArea {
+      flex: 1;
+      padding: 1.5rem 4rem; /* space for scroll bars */
+      overflow-y: auto;
+      overflow-x: hidden;
+      font-size: 16px;
+      outline: none;
+      scrollbar-width: thin;
+      scrollbar-color: #555 #181818;
+      height: 100%;
+      box-sizing: border-box;
+      resize: none;
+
+      /* dynamically scale to fill textContainer */
+      max-height: 100%;
+    }
+
+    /* Scroll buttons now hover over text area edges */
+    .scrollBtn {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 15px;
+      line-height: 5px;
+      background: rgba(34, 34, 34, 0.9);
+      color: #fff;
+      border: none;
+      font-size: 10px;
+      text-align: center;
+      cursor: pointer;
+      z-index: 20;
+      backdrop-filter: blur(4px);
+      transition: background 0.15s ease, box-shadow 0.15s ease;
+      pointer-events: auto;
+    }
+    .scrollBtn:hover {
+      background: #444;
+      box-shadow: 0 0 4px rgba(255,255,255,0.2);
+    }
+
+    #scrollUp {
+      top: 0;
+      border-bottom: 1px solid #333;
+    }
+    .scrollBtn {
+      background: rgba(34, 34, 34, 0.9);
+      pointer-events: auto;
+      z-index: 20; /* ensures above text but below modals */
+    }
+
+    #scrollDown {
+      position: fixed;                     /* ensures it stays visible */
+      bottom: calc(41vh);            /* anchors just above keyboard */
+      left: 0;
+      width: 100%;
+      border-top: 1px solid #333;
+      z-index: 401;                         /* sits above text but below hover 
+ ring */
+      background: rgba(34, 34, 34, 0.9);   /* consistent with top scroll bar */
+      backdrop-filter: blur(4px);
+    }
+
+    /* ================= Save Dropdown ================= */ 
+    .saveWrapper {
+      position: relative;
+    }
+
+    #saveMenu {
+      position: absolute;
+      top: 110%;               /* show directly below the Save button */
+      left: 0;
+      background: #222;
+      border: 1px solid #333;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      visibility: hidden;
+      opacity: 0;
+      transform: translateY(-5px);
+      transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 
+0.2s;
+    }
+
+    /* Fade-in when .hidden class is removed by JS */
+    #saveMenu:not(.hidden) {
+      visibility: visible;
+      opacity: 1;
+      transform: translateY(0);
+      transition-delay: 0s;
+    }
+
+    #saveMenu button {
+      padding: 6px 20px;
+      background: #333;
+      color: #fff;
+      border: none;
+      border-bottom: 1px solid #444;
+    }
+    #saveMenu button:last-child {
+      border-bottom: none;
+    }
+    #saveMenu button:hover {
+      background: #555;
+    }
+
+    #voiceControls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+      background: #222;
+      padding: 6px;
+      border-top: 1px solid #333;
+    }
+    #voiceControls label {
+      font-size: 14px;
+      color: #ccc;
+    }
+    #voiceControls select, #voiceControls input, #voiceControls button {
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 6px;
+    }
+    #voiceControls button:hover {
+      background: #555;
+    }
+    /* Hide the Voice Modulation button (but keep logic intact) */
+    #voiceBtn {
+      display: none !important;
+    }
+    /* ================= Instructions Modal ================= */
+    #instructionsModal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    #instructionsModal.hidden { display: none; }
+
+    .modalContent {
+      background: #222;
+      color: #eee;
+      padding: 24px;
+      border-radius: 10px;
+      max-width: 600px;
+      width: 90%;
+      line-height: 1.5em;
+      box-shadow: 0 0 20px rgba(255,255,255,0.2);
+    }
+    .modalContent h2 {
+      margin-top: 0;
+      color: #9cf;
+      text-align: center;
+    }
+    .modalContent button {
+      margin-top: 16px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    .modalContent button:hover {
+      background: #555;
+    }
+    /* Toolbar Instructions Button */
+    #instructionsBtn {
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.15s ease, box-shadow 0.15s ease;
+      width: auto;              /* fixes full-width issue */
+      display: inline-block;    /* keeps it next to Save */
+    }
+    #instructionsBtn:hover {
+      background: #444;
+      box-shadow: 0 0 5px rgba(255,255,255,0.2);
+    }
+    /* ================= On-Screen Keyboard ================= */
+    #keyboard {
+      background: #1e1e1e;
+      border-top: 1px solid #444;
+      padding: 8px 6px 10px 6px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      height: 40vh;                /* fixed keyboard height */
+      min-height: 40vh;
+      max-height: 40vh;
+      width: 100%;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      z-index: 400;
+      overflow: hidden;
+      transition: height 0.25s ease;
+    }
+
+    #kbHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .kbRow {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      margin: 3px 0;
+    }
+    .kbRow button {
+      background: rgba(51, 51, 51, 0.9);
+      color: #eee;
+      border: none;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 14px;
+      min-width: 40px;
+      transition: background 0.15s ease;
+    }
+    .kbRow button.wide { min-width: 80px; }
+    .kbRow button.extraWide { min-width: 160px; }
+    .kbRow button:hover {
+      background: #666;
+      box-shadow: 0 0 5px rgba(255,255,255,0.2);
+    }
+
+    /* ================= Hover Toggle Visual ================= */
+    #hoverToggle.active {
+      background: #118822;
+      box-shadow: 0 0 6px #11ff66;
+    }
+    #hoverToggle.inactive {
+      background: #661111;
+      box-shadow: 0 0 6px #ff4444;
+    }
+
+    /* ================= Cursor Dwell Ring ================= */
+    #cursorRing {
+      position: fixed;
+      width: 22px;
+      height: 22px;
+      border: 2px solid rgba(255,255,255,0.6);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    @keyframes ringFill {
+      0% { box-shadow: inset 0 0 0 22px rgba(255,255,255,0); }
+      100% { box-shadow: inset 0 0 0 0 rgba(255,255,255,0.8); }
+    }
+
+    /* ================= Utility ================= */
+    .hidden { display: none; }
+
+    html, body { overflow: hidden; }
