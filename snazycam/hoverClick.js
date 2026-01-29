@@ -4,7 +4,7 @@
   window.HOVER_TIME    = window.HOVER_TIME    ?? 1500;
   window.CURSOR_RADIUS = window.CURSOR_RADIUS ?? 15;
   const HOVER_OUT_GRACE = 10;
-  const COOLDOWN_MS = 800; // delay after click before rearming same element
+  const COOLDOWN_MS = 800; // ⏱ delay after click before rearming same element
 
   // --- Visual highlight style ---
   const style = document.createElement("style");
@@ -64,7 +64,7 @@
       while (parent && parent !== document.body) {
         const ps = window.getComputedStyle(parent);
         if (ps.opacity === "0" || ps.pointerEvents === "none") {
-          // Optional debug logging — shows when hidden elements are skipped
+          // 🧩 Optional debug logging — shows when hidden elements are skipped
           console.log("Skipping hidden element:", el);
           return false;
         }
@@ -110,7 +110,7 @@
         updateWheel(x, y, progress);
 
         if (progress >= 1) {
-          // Trigger click once, then cooldown
+          // ✅ Trigger click once, then cooldown
           activeEl.click();
           const clickedEl = activeEl;
           clickedEl.classList.remove("gaze-hover");
