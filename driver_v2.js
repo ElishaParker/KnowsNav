@@ -10,19 +10,19 @@
   const feedState   = document.getElementById("feedState");
   const xyState     = document.getElementById("xyState");
   const sttState    = document.getElementById("sttState");
+  const saveState   = document.getElementById("saveState");
 
   // ===================== CONFIG =====================
-  const HOVER_TIME_MS = 1500;              // dwell time
-  const CLICK_COOLDOWN_MS = 650;           // global cooldown
-  const REQUIRE_MOVE_TO_RECLICK = true;    // must move off element to click again
-  const UNLOCK_RADIUS_PX = 22;             // move distance to unlock
-  const RETARGET_STABLE_MS = 140;          // reduce edge flicker
+  const HOVER_TIME_MS = 1500;
+  const CLICK_COOLDOWN_MS = 650;
+  const REQUIRE_MOVE_TO_RECLICK = true;
+  const UNLOCK_RADIUS_PX = 22;
+  const RETARGET_STABLE_MS = 140;
   const MOVE_EVENT_HZ = 30;
 
   const X_OFFSET = 0;
   const Y_OFFSET = 0;
 
-  // prevents double letters by disabling EyeWrite's own hover click
   const AUTO_DISABLE_EYEWRITE_HOVER = true;
 
   // Auto-save naming
@@ -52,7 +52,7 @@
     return { x: snazyXY.x * (ex / sx), y: snazyXY.y * (ey / sy) };
   }
 
-  // ---------------- Parent cursor (over popup + HUD) ----------------
+  // ---------------- Parent cursor ----------------
   function ensureDriverCursor() {
     let el = document.getElementById("driverCursor");
     if (el) return el;
@@ -61,18 +61,15 @@
     document.body.appendChild(el);
     return el;
   }
-
   function setDriverCursorVisible(on) {
     const c = ensureDriverCursor();
     c.style.display = on ? "block" : "none";
   }
-
   function moveDriverCursor(x, y) {
     const c = ensureDriverCursor();
     c.style.left = `${x}px`;
     c.style.top  = `${y}px`;
   }
-
   function pulseDriverCursor() {
     try {
       const c = ensureDriverCursor();
@@ -81,7 +78,6 @@
       c.classList.add("knowsnav-click");
     } catch {}
   }
-
   function setIframeCursorVisible(eyeWin, on) {
     try {
       const c = eyeWin.document.getElementById("__knowsnav_cursor");
@@ -90,7 +86,7 @@
     } catch {}
   }
 
-  // ---------------- Overlay injection ----------------
+  // ---------------- Overlay injection (iframe cursor) ----------------
   function ensureEyewriteInjected(eyeWin) {
     const doc = eyeWin.document;
     if (!doc || !doc.body) return false;
@@ -123,9 +119,7 @@
           50%  { transform: translate(-50%, -50%) scale(1.35); opacity: 0.85; }
           100% { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
         }
-        #__knowsnav_cursor.knowsnav-click {
-          animation: knowsnavPulse 160ms ease-out;
-        }
+        #__knowsnav_cursor.knowsnav-click { animation: knowsnavPulse 160ms ease-out; }
         .gaze-hover {
           outline: 2px solid rgba(0,255,255,0.95) !important;
           box-shadow: 0 0 10px rgba(0,255,255,0.35) !important;
@@ -133,33 +127,19 @@
       `;
       doc.head.appendChild(style);
     }
-
     return true;
   }
 
   // ---------------- Events ----------------
   function dispatchMouse(win, target, type, x, y) {
-    const e = new MouseEvent(type, {
-      bubbles: true,
-      cancelable: true,
-      view: win,
-      clientX: x,
-      clientY: y
-    });
+    const e = new MouseEvent(type, { bubbles: true, cancelable: true, view: win, clientX: x, clientY: y });
     target.dispatchEvent(e);
   }
-
   function dispatchPointer(win, target, type, x, y) {
     try {
       const e = new PointerEvent(type, {
-        bubbles: true,
-        cancelable: true,
-        view: win,
-        clientX: x,
-        clientY: y,
-        pointerId: 1,
-        pointerType: "mouse",
-        isPrimary: true
+        bubbles: true, cancelable: true, view: win,
+        clientX: x, clientY: y, pointerId: 1, pointerType: "mouse", isPrimary: true
       });
       target.dispatchEvent(e);
     } catch {}
@@ -169,15 +149,10 @@
     try { el.focus?.({ preventScroll: true }); } catch {}
     try { el.focus?.(); } catch {}
   }
-
-  function setHighlight(el, on, cls = "gaze-hover") {
+  function setHighlight(el, on, cls="gaze-hover") {
     if (!el) return;
-    try {
-      if (on) el.classList.add(cls);
-      else el.classList.remove(cls);
-    } catch {}
+    try { on ? el.classList.add(cls) : el.classList.remove(cls); } catch {}
   }
-
   function pulseCursor(eyeWin) {
     try {
       const c = eyeWin.document.getElementById("__knowsnav_cursor");
@@ -188,7 +163,7 @@
     } catch {}
   }
 
-  // ---------------- Target detection (EyeWrite) ----------------
+  // ---------------- Target detection ----------------
   function isClickable(el) {
     if (!el || el.disabled) return false;
     const tag = (el.tagName || "").toLowerCase();
@@ -208,7 +183,6 @@
     if (el.closest) {
       const inputPref = el.closest("textarea,input,[contenteditable='true'],select");
       if (inputPref) return inputPref;
-
       const c = el.closest("button,a,[role='button'],[role='menuitem'],.clickable,[data-hover-click]");
       if (c) return c;
     }
@@ -220,117 +194,28 @@
     return null;
   }
 
-  // ---------------- caret placement (contenteditable) ----------------
-  function setCaretAtPoint(eyeWin, el, x, y) {
-    const doc = eyeWin.document;
-    if (!el.isContentEditable) return;
-
-    const sel = eyeWin.getSelection?.();
-    if (!sel) return;
-
-    let range = null;
-
-    if (doc.caretRangeFromPoint) {
-      range = doc.caretRangeFromPoint(x, y);
-    } else if (doc.caretPositionFromPoint) {
-      const pos = doc.caretPositionFromPoint(x, y);
-      if (pos) {
-        range = doc.createRange();
-        range.setStart(pos.offsetNode, pos.offset);
-        range.collapse(true);
-      }
-    }
-
-    if (range) {
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
-  }
-
-  // ---------------- Voice popup (kept) ----------------
-  function closeVoicePopup() {
-    const existing = document.getElementById("voicePopup");
-    if (existing) existing.remove();
-    setDriverCursorVisible(false);
-  }
-
-  function openVoicePopupFromSelect(selectEl) {
-    closeVoicePopup();
-
-    const overlay = document.getElementById("driverStatus");
-    if (!overlay) return;
-
-    const popup = document.createElement("div");
-    popup.id = "voicePopup";
-
-    const header = document.createElement("div");
-    header.id = "voicePopupHeader";
-
-    const title = document.createElement("div");
-    title.className = "title";
-    title.textContent = "Select Voice";
-
-    const closeBtn = document.createElement("button");
-    closeBtn.id = "voicePopupClose";
-    closeBtn.textContent = "Close";
-    closeBtn.addEventListener("click", closeVoicePopup);
-
-    header.appendChild(title);
-    header.appendChild(closeBtn);
-    popup.appendChild(header);
-
-    const opts = Array.from(selectEl.options || []);
-    opts.forEach((opt) => {
-      const item = document.createElement("div");
-      item.className = "voiceItem";
-      item.textContent = opt.textContent;
-
-      item.addEventListener("click", () => {
-        try {
-          selectEl.value = opt.value;
-          selectEl.dispatchEvent(new Event("change", { bubbles: true }));
-        } catch {}
-        closeVoicePopup();
-      });
-
-      popup.appendChild(item);
-    });
-
-    overlay.insertBefore(popup, overlay.firstChild);
-    setDriverCursorVisible(true);
-  }
-
   // ---------------- Auto disable EyeWrite hover ----------------
   let hoverToggledOff = false;
-
   function disableEyewriteHoverIfOn(eyeWin) {
     if (!AUTO_DISABLE_EYEWRITE_HOVER || hoverToggledOff) return;
     const doc = eyeWin.document;
     if (!doc) return;
-
     const buttons = Array.from(doc.querySelectorAll("button,div"));
     const hoverEl = buttons.find(el => (el.textContent || "").trim() === "Hover ON");
-
     if (hoverEl) {
       try { hoverEl.click(); hoverToggledOff = true; } catch {}
     }
   }
 
-  // ==========================
-  // PATCH 1: AUTO-SAVE (NO PROMPT)
-  // ==========================
+  // ============================================================
+  // PATCH 1: AUTO-SAVE — KILL PROMPT BY OVERRIDING TOP + PARENT
+  // ============================================================
   let autosaveInstalled = false;
   let nextSaveExt = "txt";
 
   function tsStamp(d = new Date()) {
     const pad = (n) => String(n).padStart(2, "0");
-    const YYYY = d.getFullYear();
-    const MM = pad(d.getMonth() + 1);
-    const DD = pad(d.getDate());
-    const HH = pad(d.getHours());
-    const mm = pad(d.getMinutes());
-    const ss = pad(d.getSeconds());
-    return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
   }
 
   function guessExtFromUiText(t) {
@@ -340,65 +225,61 @@
     return "txt";
   }
 
+  function makeAutoName() {
+    return `${AUTOSAVE_PREFIX}-${tsStamp()}.${nextSaveExt}`;
+  }
+
   function installAutoSaveNoPrompt(eyeWin) {
     if (autosaveInstalled) return;
-    const w = eyeWin;
-    const doc = w.document;
-    if (!w || !doc) return;
+    if (!eyeWin || !eyeWin.document) return;
 
-    // 1) Track what the user picked (TXT/DOCX/PDF)
-    // We listen in capture phase so we see it before handlers.
-    doc.addEventListener("click", (ev) => {
-      try {
+    // Track format selection (TXT/DOCX/PDF)
+    try {
+      eyeWin.document.addEventListener("click", (ev) => {
         const el = ev.target?.closest?.("button,div,span");
         const txt = (el?.textContent || "").trim();
         if (!txt) return;
 
-        // Only update if it looks like a save format option
+        // update ext when user picks TXT/DOCX/PDF
         const ext = guessExtFromUiText(txt);
         if (txt === "TXT" || txt === "DOCX" || txt === "PDF" ||
-            txt.toLowerCase().includes("txt") ||
-            txt.toLowerCase().includes("docx") ||
-            txt.toLowerCase().includes("pdf")) {
+            txt.toLowerCase() === "txt" || txt.toLowerCase() === "docx" || txt.toLowerCase() === "pdf") {
           nextSaveExt = ext;
         }
-      } catch {}
-    }, true);
+      }, true);
+    } catch {}
 
-    // 2) Override prompt to return auto filename (eliminates popup)
-    const originalPrompt = w.prompt?.bind(w);
-    w.prompt = (message, defaultValue) => {
+    // Build ONE prompt override and install everywhere it might be called
+    const promptOverride = (message, defaultValue) => {
       try {
         const msg = String(message || "");
-        // match your prompt: "Enter file name:"
-        if (/enter\s+file\s+name/i.test(msg) || /file\s*name/i.test(msg)) {
-          const name = `${AUTOSAVE_PREFIX}-${tsStamp()}.${nextSaveExt}`;
-          return name;
+        // Their dialog is: "Enter file name:"
+        if (/enter\s*file\s*name/i.test(msg) || /file\s*name/i.test(msg)) {
+          const name = makeAutoName();
+          saveState.textContent = `auto: ${name}`;
+          return name; // ✅ prevents native prompt entirely
         }
       } catch {}
-
-      // fallback to original behavior if it's some other prompt
-      try {
-        return originalPrompt ? originalPrompt(message, defaultValue) : (defaultValue ?? "");
-      } catch {
-        return defaultValue ?? "";
-      }
+      return (defaultValue ?? "");
     };
 
-    // Optional: if any alert blocks you, you can mute it:
-    // w.alert = () => {};
+    // Install in: iframe window + iframe.top + parent window (this)
+    try { eyeWin.prompt = promptOverride; } catch {}
+    try { eyeWin.top.prompt = promptOverride; } catch {}
+    try { window.prompt = promptOverride; } catch {}
+    try { window.top.prompt = promptOverride; } catch {}
 
     autosaveInstalled = true;
+    saveState.textContent = "autosave armed";
   }
 
-  // ==========================
-  // PATCH 2: SPEECH-TO-TEXT TOGGLE (Web Speech API)
-  // ==========================
+  // ============================================================
+  // PATCH 2: STT BUTTON (Web Speech API) + inserts into EyeWrite
+  // ============================================================
   let SpeechRec = null;
   let rec = null;
   let sttOn = false;
 
-  // Track last text target inside EyeWrite
   let lastTextTarget = null;
   function isTextField(el) {
     if (!el) return false;
@@ -422,28 +303,20 @@
       focusElement(el);
 
       if (el.isContentEditable) {
-        // Try modern insertion
-        try {
-          doc.execCommand("insertText", false, text);
-          return true;
-        } catch {}
-        // Fallback: append
+        try { doc.execCommand("insertText", false, text); return true; } catch {}
         el.textContent += text;
         return true;
       }
 
-      // input/textarea
       const start = el.selectionStart ?? el.value.length;
       const end   = el.selectionEnd ?? el.value.length;
 
-      if (typeof el.setRangeText === "function") {
-        el.setRangeText(text, start, end, "end");
-      } else {
+      if (typeof el.setRangeText === "function") el.setRangeText(text, start, end, "end");
+      else {
         const v = el.value || "";
         el.value = v.slice(0, start) + text + v.slice(end);
       }
 
-      // fire input event so app reacts
       el.dispatchEvent(new Event("input", { bubbles: true }));
       return true;
     } catch {}
@@ -463,80 +336,65 @@
   }
 
   function startStt(eyeWin) {
-    // SpeechRecognition is only available in some browsers (Chrome usually uses webkitSpeechRecognition).
     SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRec) {
-      setSttUi(false, "unsupported");
-      return;
-    }
+    if (!SpeechRec) { setSttUi(false, "unsupported"); return; }
 
-    // Create each time to avoid “stuck” states
     rec = new SpeechRec();
     rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = "en-US"; // you can later bind this to your voice/lang dropdown
-
-    let lastFinal = "";
+    rec.interimResults = false;
+    rec.lang = "en-US";
 
     rec.onstart = () => setSttUi(true, "listening");
     rec.onerror = () => setSttUi(true, "error");
-    rec.onend = () => {
-      // If user still wants STT ON, auto-restart
-      if (sttOn) {
-        try { rec.start(); } catch {}
-      }
-    };
+    rec.onend = () => { if (sttOn) { try { rec.start(); } catch {} } };
 
     rec.onresult = (event) => {
       try {
-        let interim = "";
         let finalText = "";
-
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const r = event.results[i];
-          const t = (r[0]?.transcript || "");
-          if (r.isFinal) finalText += t;
-          else interim += t;
+          if (r.isFinal) finalText += (r[0]?.transcript || "");
         }
-
-        // Only commit final chunks
-        if (finalText && finalText !== lastFinal) {
-          lastFinal = finalText;
-
-          // Add a space for natural typing
-          const chunk = finalText.trim() + " ";
-          insertTextIntoEyeWrite(eyeWin, chunk);
+        if (finalText) {
+          insertTextIntoEyeWrite(eyeWin, finalText.trim() + " ");
           sttState.textContent = "typing…";
-          setTimeout(() => { if (sttOn) sttState.textContent = "listening"; }, 250);
+          setTimeout(() => { if (sttOn) sttState.textContent = "listening"; }, 200);
         }
       } catch {}
     };
 
-    try { rec.start(); } catch {
-      setSttUi(false, "blocked");
-      return;
-    }
-
+    try { rec.start(); } catch { setSttUi(false, "blocked"); return; }
     setSttUi(true, "listening");
   }
 
   btnStt.addEventListener("click", () => {
-    try {
-      const eyeWin = eyeFrame.contentWindow;
-      if (!eyeWin) return;
-      if (sttOn) stopStt();
-      else startStt(eyeWin);
-    } catch {}
+    const eyeWin = eyeFrame.contentWindow;
+    if (!eyeWin) return;
+    if (sttOn) stopStt();
+    else startStt(eyeWin);
   });
+
+  // Track last text field clicked (helps STT know where to type)
+  function wireTextTargetTracking(eyeWin) {
+    try {
+      eyeWin.document.addEventListener("mousedown", (ev) => {
+        const t = ev.target;
+        if (isTextField(t)) lastTextTarget = t;
+        else if (t?.closest) {
+          const c = t.closest("textarea,input,[contenteditable='true']");
+          if (c && isTextField(c)) lastTextTarget = c;
+        }
+      }, true);
+    } catch {}
+  }
+  let textTrackingWired = false;
 
   // ---------------- Locked hover engine ----------------
   let lockedEl = null;
   let lockedAt = 0;
   let lockPos = { x: 0, y: 0 };
-
   let lastClickAt = 0;
   let lastClickedEl = null;
-
   let pendingEl = null;
   let pendingSince = 0;
 
@@ -547,7 +405,6 @@
     lockPos = { x, y };
     setHighlight(lockedEl, true, cls);
   }
-
   function unlock(cls) {
     if (lockedEl) setHighlight(lockedEl, false, cls);
     if (lockedEl && lockedEl === lastClickedEl) lastClickedEl = null;
@@ -556,35 +413,28 @@
     pendingEl = null;
     pendingSince = 0;
   }
-
   function distance(a, b) {
     const dx = a.x - b.x, dy = a.y - b.y;
     return Math.sqrt(dx*dx + dy*dy);
   }
 
   function clickElementEyeWrite(eyeWin, el, x, y) {
-    const tag = (el.tagName || "").toLowerCase();
-
-    // Track last text target for STT insertion
+    // help STT targeting
     try {
       if (isTextField(el) || el.isContentEditable) lastTextTarget = el;
     } catch {}
 
+    const tag = (el.tagName || "").toLowerCase();
+
     if (tag === "select") {
       focusElement(el);
-      openVoicePopupFromSelect(el);
-      return;
-    }
-
-    if (el.isContentEditable) {
-      focusElement(el);
+      // (voice popup not included here; keeping click normal)
       dispatchMouse(eyeWin, el, "click", x, y);
-      setCaretAtPoint(eyeWin, el, x, y);
       pulseCursor(eyeWin);
       return;
     }
 
-    if (tag === "input" || tag === "textarea") {
+    if (el.isContentEditable || tag === "input" || tag === "textarea") {
       focusElement(el);
       dispatchMouse(eyeWin, el, "click", x, y);
       pulseCursor(eyeWin);
@@ -596,9 +446,7 @@
     pulseCursor(eyeWin);
   }
 
-  // Throttle move events
   let lastMoveSent = 0;
-
   function hoverControllerEyeWrite(eyeWin, x, y) {
     const now = performance.now();
     const doc = eyeWin.document;
@@ -633,16 +481,8 @@
     const raw = doc.elementFromPoint(x, y);
     const target = findTarget(raw);
 
-    if (!target) {
-      pendingEl = null; pendingSince = 0;
-      return;
-    }
-
-    if (!pendingEl || pendingEl !== target) {
-      pendingEl = target;
-      pendingSince = now;
-      return;
-    }
+    if (!target) { pendingEl = null; pendingSince = 0; return; }
+    if (!pendingEl || pendingEl !== target) { pendingEl = target; pendingSince = now; return; }
 
     if ((now - pendingSince) >= RETARGET_STABLE_MS) {
       lockOn(target, x, y, "gaze-hover");
@@ -650,68 +490,7 @@
     }
   }
 
-  // ---------------- Popup hover controller (PARENT DOC) ----------------
-  function findPopupTarget(el) {
-    if (!el) return null;
-    if (el.closest) {
-      const c = el.closest("#voicePopupClose,.voiceItem");
-      if (c) return c;
-    }
-    return null;
-  }
-
-  function clickElementPopup(el) {
-    try { el.click(); } catch {
-      try { dispatchMouse(window, el, "click", 0, 0); } catch {}
-    }
-    pulseDriverCursor();
-  }
-
-  function hoverControllerPopup(x, y) {
-    const now = performance.now();
-    const popup = document.getElementById("voicePopup");
-    if (!popup) return;
-
-    if (lockedEl) {
-      if (distance({ x, y }, lockPos) > UNLOCK_RADIUS_PX) {
-        unlock("driver-hover");
-      } else {
-        const dwell = now - lockedAt;
-        const cooled = (now - lastClickAt) >= CLICK_COOLDOWN_MS;
-
-        if (dwell >= HOVER_TIME_MS && cooled) {
-          if (REQUIRE_MOVE_TO_RECLICK && lastClickedEl === lockedEl) return;
-          clickElementPopup(lockedEl);
-          lastClickAt = now;
-          lastClickedEl = lockedEl;
-          lockedAt = now;
-          lockPos = { x, y };
-        }
-        return;
-      }
-    }
-
-    const raw = document.elementFromPoint(x, y);
-    const target = findPopupTarget(raw);
-
-    if (!target) {
-      pendingEl = null; pendingSince = 0;
-      return;
-    }
-
-    if (!pendingEl || pendingEl !== target) {
-      pendingEl = target;
-      pendingSince = now;
-      return;
-    }
-
-    if ((now - pendingSince) >= RETARGET_STABLE_MS) {
-      lockOn(target, x, y, "driver-hover");
-      pendingEl = null; pendingSince = 0;
-    }
-  }
-
-  // ---------------- Parent HUD hover controller (buttons) ----------------
+  // Parent HUD hover controller (buttons)
   function findHudTarget(el) {
     if (!el) return null;
     if (el.closest) {
@@ -720,14 +499,12 @@
     }
     return null;
   }
-
   function clickHudTarget(el) {
     try { el.click(); } catch {
       try { dispatchMouse(window, el, "click", 0, 0); } catch {}
     }
     pulseDriverCursor();
   }
-
   function hoverControllerHud(x, y) {
     const now = performance.now();
 
@@ -737,7 +514,6 @@
       } else {
         const dwell = now - lockedAt;
         const cooled = (now - lastClickAt) >= CLICK_COOLDOWN_MS;
-
         if (dwell >= HOVER_TIME_MS && cooled) {
           if (REQUIRE_MOVE_TO_RECLICK && lastClickedEl === lockedEl) return;
           clickHudTarget(lockedEl);
@@ -753,16 +529,8 @@
     const raw = document.elementFromPoint(x, y);
     const target = findHudTarget(raw);
 
-    if (!target) {
-      pendingEl = null; pendingSince = 0;
-      return;
-    }
-
-    if (!pendingEl || pendingEl !== target) {
-      pendingEl = target;
-      pendingSince = now;
-      return;
-    }
+    if (!target) { pendingEl = null; pendingSince = 0; return; }
+    if (!pendingEl || pendingEl !== target) { pendingEl = target; pendingSince = now; return; }
 
     if ((now - pendingSince) >= RETARGET_STABLE_MS) {
       lockOn(target, x, y, "driver-hover");
@@ -787,8 +555,13 @@
       const injected = ensureEyewriteInjected(eyeWin);
       bridgeState.textContent = injected ? "ready" : "injecting…";
 
-      // Install autosave patch once EyeWrite is available
+      // ✅ install autosave + STT helpers once we can
       installAutoSaveNoPrompt(eyeWin);
+
+      if (!textTrackingWired) {
+        wireTextTargetTracking(eyeWin);
+        textTrackingWired = true;
+      }
 
       disableEyewriteHoverIfOn(eyeWin);
 
@@ -806,7 +579,6 @@
       const tx = Math.round(mapped.x);
       const ty = Math.round(mapped.y);
 
-      // update both cursors
       const iframeDoc = eyeWin.document;
       const iframeCursor = iframeDoc.getElementById("__knowsnav_cursor");
       if (iframeCursor) {
@@ -820,20 +592,9 @@
       lastGood = performance.now();
 
       const snazyFront = document.body.classList.contains("snazy-front");
-      const popupOpen = !!document.getElementById("voicePopup");
-
-      // detect HUD hover
       const overHud = !!findHudTarget(document.elementFromPoint(mapped.x, mapped.y));
 
-      if (snazyFront) {
-        setDriverCursorVisible(true);
-        setIframeCursorVisible(eyeWin, false);
-        hoverControllerHud(mapped.x, mapped.y);
-      } else if (popupOpen) {
-        setDriverCursorVisible(true);
-        setIframeCursorVisible(eyeWin, false);
-        hoverControllerPopup(mapped.x, mapped.y);
-      } else if (overHud) {
+      if (snazyFront || overHud) {
         setDriverCursorVisible(true);
         setIframeCursorVisible(eyeWin, false);
         hoverControllerHud(mapped.x, mapped.y);
@@ -856,7 +617,6 @@
     if (age > 800) feedState.textContent = `stale (${Math.round(age)}ms)`;
   }, 250);
 
-  // Initial UI state
   setSttUi(false, "off");
   tick();
 })();
