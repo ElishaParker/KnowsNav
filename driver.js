@@ -52,6 +52,7 @@
     const doc = eyeWin.document;
     if (!doc || !doc.body) return false;
 
+    // smaller ring (75% of prior size)
     if (!doc.getElementById("__knowsnav_cursor")) {
       const cursor = doc.createElement("div");
       cursor.id = "__knowsnav_cursor";
@@ -59,11 +60,11 @@
         position: "fixed",
         left: "0px",
         top: "0px",
-        width: "44px",
-        height: "44px",
+        width: "33px",
+        height: "33px",
         borderRadius: "50%",
-        border: "3px solid rgba(0,255,255,0.95)",
-        boxShadow: "0 0 18px rgba(0,255,255,0.35)",
+        border: "2px solid rgba(0,255,255,0.95)",
+        boxShadow: "0 0 14px rgba(0,255,255,0.35)",
         transform: "translate(-50%, -50%)",
         pointerEvents: "none",
         zIndex: "2147483647"
@@ -71,10 +72,19 @@
       doc.body.appendChild(cursor);
     }
 
-    if (!doc.getElementById("__knowsnav_hover_style")) {
+    // click pulse effect
+    if (!doc.getElementById("__knowsnav_click_style")) {
       const style = doc.createElement("style");
-      style.id = "__knowsnav_hover_style";
+      style.id = "__knowsnav_click_style";
       style.textContent = `
+        @keyframes knowsnavPulse {
+          0%   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+          50%  { transform: translate(-50%, -50%) scale(1.35); opacity: 0.85; }
+          100% { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+        }
+        #__knowsnav_cursor.knowsnav-click {
+          animation: knowsnavPulse 160ms ease-out;
+        }
         .gaze-hover {
           outline: 2px solid rgba(0,255,255,0.95) !important;
           box-shadow: 0 0 10px rgba(0,255,255,0.35) !important;
@@ -83,44 +93,27 @@
       doc.head.appendChild(style);
     }
 
-    // Click pulse animation (visual confirmation)
-    if (!doc.getElementById("__knowsnav_click_anim")) {
-      const style2 = doc.createElement("style");
-      style2.id = "__knowsnav_click_anim";
-      style2.textContent = `
-        @keyframes knowsnavPulse {
-          0%   { transform: translate(-50%, -50%) scale(1);    box-shadow: 0 0 18px rgba(0,255,255,0.35); }
-          40%  { transform: translate(-50%, -50%) scale(1.15); box-shadow: 0 0 28px rgba(0,255,255,0.65); }
-          100% { transform: translate(-50%, -50%) scale(1);    box-shadow: 0 0 18px rgba(0,255,255,0.35); }
-        }
-        #__knowsnav_cursor.knowsnav-click {
-          animation: knowsnavPulse 220ms ease-out;
-        }
-      `;
-      doc.head.appendChild(style2);
-    }
-
     return true;
   }
 
   // ---------------- Events ----------------
-  function dispatchMouse(eyeWin, target, type, x, y) {
+  function dispatchMouse(win, target, type, x, y) {
     const e = new MouseEvent(type, {
       bubbles: true,
       cancelable: true,
-      view: eyeWin,
+      view: win,
       clientX: x,
       clientY: y
     });
     target.dispatchEvent(e);
   }
 
-  function dispatchPointer(eyeWin, target, type, x, y) {
+  function dispatchPointer(win, target, type, x, y) {
     try {
       const e = new PointerEvent(type, {
         bubbles: true,
         cancelable: true,
-        view: eyeWin,
+        view: win,
         clientX: x,
         clientY: y,
         pointerId: 1,
@@ -136,21 +129,25 @@
     try { el.focus?.(); } catch {}
   }
 
-  function setHighlight(el, on) {
+  function setHighlight(el, on, cls = "gaze-hover") {
     if (!el) return;
     try {
-      if (on) el.classList.add("gaze-hover");
-      else el.classList.remove("gaze-hover");
+      if (on) el.classList.add(cls);
+      else el.classList.remove(cls);
     } catch {}
   }
 
-  // ---------------- Target detection ----------------
-  function isInputLike(el) {
-    if (!el) return false;
-    const tag = (el.tagName || "").toLowerCase();
-    return tag === "input" || tag === "textarea" || tag === "select" || el.isContentEditable;
+  function pulseCursor(eyeWin) {
+    try {
+      const c = eyeWin.document.getElementById("__knowsnav_cursor");
+      if (!c) return;
+      c.classList.remove("knowsnav-click");
+      void c.offsetWidth; // restart animation
+      c.classList.add("knowsnav-click");
+    } catch {}
   }
 
+  // ---------------- Target detection (EyeWrite) ----------------
   function isClickable(el) {
     if (!el || el.disabled) return false;
     const tag = (el.tagName || "").toLowerCase();
@@ -168,7 +165,6 @@
   function findTarget(el) {
     if (!el) return null;
     if (el.closest) {
-      // prefer inputs/selects/textareas
       const inputPref = el.closest("textarea,input,[contenteditable='true'],select");
       if (inputPref) return inputPref;
 
@@ -183,7 +179,7 @@
     return null;
   }
 
-  // ---------------- Bug #1 caret placement (contenteditable only) ----------------
+  // ---------------- Bug #1 caret placement (contenteditable) ----------------
   function setCaretAtPoint(eyeWin, el, x, y) {
     const doc = eyeWin.document;
     if (!el.isContentEditable) return;
@@ -210,7 +206,7 @@
     }
   }
 
-  // ---------------- Voice popup (triggered by the real dropdown) ----------------
+  // ---------------- Voice popup (triggered by real dropdown) ----------------
   function closeVoicePopup() {
     const existing = document.getElementById("voicePopup");
     if (existing) existing.remove();
@@ -219,8 +215,7 @@
   function openVoicePopupFromSelect(selectEl) {
     closeVoicePopup();
 
-    // Anchor popup to bottom-right HUD stack
-    const overlay = document.getElementById("driverStatus");
+    const overlay = document.getElementById("driverOverlay");
     if (!overlay) return;
 
     const popup = document.createElement("div");
@@ -259,7 +254,6 @@
       popup.appendChild(item);
     });
 
-    // Insert popup ABOVE the status box (at top of stack)
     overlay.insertBefore(popup, overlay.firstChild);
   }
 
@@ -268,23 +262,18 @@
 
   function disableEyewriteHoverIfOn(eyeWin) {
     if (!AUTO_DISABLE_EYEWRITE_HOVER || hoverToggledOff) return;
-
     const doc = eyeWin.document;
     if (!doc) return;
 
-    // Find a button containing "Hover ON"
     const buttons = Array.from(doc.querySelectorAll("button,div"));
     const hoverEl = buttons.find(el => (el.textContent || "").trim() === "Hover ON");
 
     if (hoverEl) {
-      try {
-        hoverEl.click();
-        hoverToggledOff = true;
-      } catch {}
+      try { hoverEl.click(); hoverToggledOff = true; } catch {}
     }
   }
 
-  // ---------------- Locked hover engine ----------------
+  // ---------------- Locked hover engine (shared) ----------------
   let lockedEl = null;
   let lockedAt = 0;
   let lockPos = { x: 0, y: 0 };
@@ -295,16 +284,16 @@
   let pendingEl = null;
   let pendingSince = 0;
 
-  function lockOn(el, x, y) {
-    if (lockedEl && lockedEl !== el) setHighlight(lockedEl, false);
+  function lockOn(el, x, y, cls) {
+    if (lockedEl && lockedEl !== el) setHighlight(lockedEl, false, cls);
     lockedEl = el;
     lockedAt = performance.now();
     lockPos = { x, y };
-    setHighlight(lockedEl, true);
+    setHighlight(lockedEl, true, cls);
   }
 
-  function unlock() {
-    if (lockedEl) setHighlight(lockedEl, false);
+  function unlock(cls) {
+    if (lockedEl) setHighlight(lockedEl, false, cls);
     if (lockedEl && lockedEl === lastClickedEl) lastClickedEl = null;
     lockedEl = null;
     lockedAt = 0;
@@ -317,57 +306,43 @@
     return Math.sqrt(dx*dx + dy*dy);
   }
 
-  // Click protocol:
-  function clickElement(eyeWin, el, x, y) {
-    // click pulse on cursor ring
-    try {
-      const cur = eyeWin.document.getElementById("__knowsnav_cursor");
-      if (cur) {
-        cur.classList.remove("knowsnav-click");
-        void cur.offsetWidth; // reflow to retrigger animation
-        cur.classList.add("knowsnav-click");
-      }
-    } catch {}
-
+  function clickElementEyeWrite(eyeWin, el, x, y) {
     const tag = (el.tagName || "").toLowerCase();
 
-    // Select dropdown -> popup list (block native dropdown)
     if (tag === "select") {
-      try { el.blur?.(); } catch {}
       focusElement(el);
       openVoicePopupFromSelect(el);
       return;
     }
 
-    // contenteditable text area -> set caret at point
     if (el.isContentEditable) {
       focusElement(el);
       dispatchMouse(eyeWin, el, "click", x, y);
       setCaretAtPoint(eyeWin, el, x, y);
+      pulseCursor(eyeWin);
       return;
     }
 
-    // inputs/textarea (if present)
     if (tag === "input" || tag === "textarea") {
       focusElement(el);
       dispatchMouse(eyeWin, el, "click", x, y);
+      pulseCursor(eyeWin);
       return;
     }
 
-    // keys/buttons -> single click only
     dispatchMouse(eyeWin, el, "click", x, y);
     focusElement(el);
+    pulseCursor(eyeWin);
   }
 
   // Throttle move events
   let lastMoveSent = 0;
 
-  function hoverController(eyeWin, x, y) {
+  function hoverControllerEyeWrite(eyeWin, x, y) {
     const now = performance.now();
     const doc = eyeWin.document;
     if (!doc) return;
 
-    // movement events
     const interval = 1000 / MOVE_EVENT_HZ;
     if (now - lastMoveSent >= interval) {
       lastMoveSent = now;
@@ -375,23 +350,18 @@
       dispatchMouse(eyeWin, doc, "mousemove", x, y);
     }
 
-    // locked element flow
     if (lockedEl) {
       if (distance({ x, y }, lockPos) > UNLOCK_RADIUS_PX) {
-        unlock();
+        unlock("gaze-hover");
       } else {
         const dwell = now - lockedAt;
         const cooled = (now - lastClickAt) >= CLICK_COOLDOWN_MS;
 
         if (dwell >= HOVER_TIME_MS && cooled) {
-          if (REQUIRE_MOVE_TO_RECLICK && lastClickedEl === lockedEl) {
-            return;
-          }
-          clickElement(eyeWin, lockedEl, x, y);
+          if (REQUIRE_MOVE_TO_RECLICK && lastClickedEl === lockedEl) return;
+          clickElementEyeWrite(eyeWin, lockedEl, x, y);
           lastClickAt = now;
           lastClickedEl = lockedEl;
-
-          // restart dwell timer, keep lock until moved off
           lockedAt = now;
           lockPos = { x, y };
         }
@@ -399,7 +369,6 @@
       }
     }
 
-    // acquire candidate
     const raw = doc.elementFromPoint(x, y);
     const target = findTarget(raw);
 
@@ -408,7 +377,6 @@
       return;
     }
 
-    // stable retarget
     if (!pendingEl || pendingEl !== target) {
       pendingEl = target;
       pendingSince = now;
@@ -416,7 +384,68 @@
     }
 
     if ((now - pendingSince) >= RETARGET_STABLE_MS) {
-      lockOn(target, x, y);
+      lockOn(target, x, y, "gaze-hover");
+      pendingEl = null; pendingSince = 0;
+    }
+  }
+
+  // ---------------- Popup hover controller (PARENT DOC) ----------------
+  function findPopupTarget(el) {
+    if (!el) return null;
+    if (el.closest) {
+      const c = el.closest("#voicePopupClose,.voiceItem");
+      if (c) return c;
+    }
+    return null;
+  }
+
+  function clickElementPopup(el) {
+    try { el.click(); } catch {
+      try { dispatchMouse(window, el, "click", 0, 0); } catch {}
+    }
+  }
+
+  function hoverControllerPopup(x, y) {
+    const now = performance.now();
+    const popup = document.getElementById("voicePopup");
+    if (!popup) return;
+
+    // If we are locked on something but user moved away -> unlock
+    if (lockedEl) {
+      if (distance({ x, y }, lockPos) > UNLOCK_RADIUS_PX) {
+        unlock("driver-hover");
+      } else {
+        const dwell = now - lockedAt;
+        const cooled = (now - lastClickAt) >= CLICK_COOLDOWN_MS;
+
+        if (dwell >= HOVER_TIME_MS && cooled) {
+          if (REQUIRE_MOVE_TO_RECLICK && lastClickedEl === lockedEl) return;
+          clickElementPopup(lockedEl);
+          lastClickAt = now;
+          lastClickedEl = lockedEl;
+          lockedAt = now;
+          lockPos = { x, y };
+        }
+        return;
+      }
+    }
+
+    const raw = document.elementFromPoint(x, y);
+    const target = findPopupTarget(raw);
+
+    if (!target) {
+      pendingEl = null; pendingSince = 0;
+      return;
+    }
+
+    if (!pendingEl || pendingEl !== target) {
+      pendingEl = target;
+      pendingSince = now;
+      return;
+    }
+
+    if ((now - pendingSince) >= RETARGET_STABLE_MS) {
+      lockOn(target, x, y, "driver-hover");
       pendingEl = null; pendingSince = 0;
     }
   }
@@ -454,7 +483,6 @@
       const tx = Math.round(mapped.x);
       const ty = Math.round(mapped.y);
 
-      // update cursor ring
       const doc = eyeWin.document;
       const cursor = doc.getElementById("__knowsnav_cursor");
       if (cursor) {
@@ -466,13 +494,19 @@
       feedState.textContent = "live";
       lastGood = performance.now();
 
-      // Only interact when EyeWrite is front
       const snazyFront = document.body.classList.contains("snazy-front");
+
       if (!snazyFront) {
-        hoverController(eyeWin, mapped.x, mapped.y);
+        // If popup is open, we target popup in PARENT doc instead of EyeWrite iframe
+        if (document.getElementById("voicePopup")) {
+          hoverControllerPopup(mapped.x, mapped.y);
+        } else {
+          hoverControllerEyeWrite(eyeWin, mapped.x, mapped.y);
+        }
       } else {
         closeVoicePopup();
-        unlock();
+        unlock("gaze-hover");
+        unlock("driver-hover");
       }
 
     } catch {
