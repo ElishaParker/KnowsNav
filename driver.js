@@ -83,6 +83,23 @@
       doc.head.appendChild(style);
     }
 
+    // Click pulse animation (visual confirmation)
+    if (!doc.getElementById("__knowsnav_click_anim")) {
+      const style2 = doc.createElement("style");
+      style2.id = "__knowsnav_click_anim";
+      style2.textContent = `
+        @keyframes knowsnavPulse {
+          0%   { transform: translate(-50%, -50%) scale(1);    box-shadow: 0 0 18px rgba(0,255,255,0.35); }
+          40%  { transform: translate(-50%, -50%) scale(1.15); box-shadow: 0 0 28px rgba(0,255,255,0.65); }
+          100% { transform: translate(-50%, -50%) scale(1);    box-shadow: 0 0 18px rgba(0,255,255,0.35); }
+        }
+        #__knowsnav_cursor.knowsnav-click {
+          animation: knowsnavPulse 220ms ease-out;
+        }
+      `;
+      doc.head.appendChild(style2);
+    }
+
     return true;
   }
 
@@ -167,10 +184,8 @@
   }
 
   // ---------------- Bug #1 caret placement (contenteditable only) ----------------
-  // (EyeWrite’s text area behaves like contenteditable in most builds)
   function setCaretAtPoint(eyeWin, el, x, y) {
     const doc = eyeWin.document;
-
     if (!el.isContentEditable) return;
 
     const sel = eyeWin.getSelection?.();
@@ -204,7 +219,8 @@
   function openVoicePopupFromSelect(selectEl) {
     closeVoicePopup();
 
-    const overlay = document.getElementById("driverOverlay");
+    // Anchor popup to bottom-right HUD stack
+    const overlay = document.getElementById("driverStatus");
     if (!overlay) return;
 
     const popup = document.createElement("div");
@@ -243,7 +259,7 @@
       popup.appendChild(item);
     });
 
-    // Insert popup ABOVE status (at top of overlay stack)
+    // Insert popup ABOVE the status box (at top of stack)
     overlay.insertBefore(popup, overlay.firstChild);
   }
 
@@ -302,14 +318,22 @@
   }
 
   // Click protocol:
-  // - keys/buttons: ONE click only
-  // - contenteditable: focus + caret placement + ONE click (for activation)
-  // - select: open our popup and DO NOT rely on native open
   function clickElement(eyeWin, el, x, y) {
+    // click pulse on cursor ring
+    try {
+      const cur = eyeWin.document.getElementById("__knowsnav_cursor");
+      if (cur) {
+        cur.classList.remove("knowsnav-click");
+        void cur.offsetWidth; // reflow to retrigger animation
+        cur.classList.add("knowsnav-click");
+      }
+    } catch {}
+
     const tag = (el.tagName || "").toLowerCase();
 
-    // Select dropdown -> popup list
+    // Select dropdown -> popup list (block native dropdown)
     if (tag === "select") {
+      try { el.blur?.(); } catch {}
       focusElement(el);
       openVoicePopupFromSelect(el);
       return;
@@ -318,7 +342,6 @@
     // contenteditable text area -> set caret at point
     if (el.isContentEditable) {
       focusElement(el);
-      // single click to keep EyeWrite logic consistent
       dispatchMouse(eyeWin, el, "click", x, y);
       setCaretAtPoint(eyeWin, el, x, y);
       return;
