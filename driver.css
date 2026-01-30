@@ -28,9 +28,11 @@ iframe {
   height: 100vh !important;
 }
 
+/* default stacking */
 #snazyFrame { z-index: 10 !important; }
 #eyeFrame   { z-index: 20 !important; }
 
+/* Snazy brought to front: EyeWrite still visible but non-interactive */
 body.snazy-front #snazyFrame { z-index: 30 !important; }
 body.snazy-front #eyeFrame {
   z-index: 20 !important;
@@ -38,25 +40,28 @@ body.snazy-front #eyeFrame {
 }
 
 /* ================================
-   DRIVER OVERLAY (BOTTOM-LEFT)
-   Status stacked ABOVE buttons
+   DRIVER OVERLAY
+   - Must stay clickable + above all
 ================================ */
 #driverOverlay {
   position: fixed !important;
-  left: 12px !important;
-  right: auto !important;
-  bottom: 12px !important;
   z-index: 2147483647 !important;
+  pointer-events: auto !important;
 
+  /* IMPORTANT: these prevent "disappearing" / weird layout */
   display: flex !important;
   flex-direction: column !important;
-  align-items: flex-start !important;
   gap: 10px !important;
-
-  pointer-events: auto !important;
 }
 
-/* Status readout */
+/* hide helper */
+#driverOverlay button.hidden {
+  display: none !important;
+}
+
+/* ================================
+   STATUS READOUT
+================================ */
 #status {
   min-width: 220px !important;
   border-radius: 12px !important;
@@ -66,9 +71,13 @@ body.snazy-front #eyeFrame {
   color: #00ffff !important;
   box-shadow: 0 0 18px rgba(0,255,255,0.18) !important;
 }
-#status .label { opacity: 0.75 !important; }
+#status .label {
+  opacity: 0.75 !important;
+}
 
-/* Buttons */
+/* ================================
+   BUTTONS (Driver)
+================================ */
 #driverOverlay button {
   border: 0 !important;
   border-radius: 999px !important;
@@ -79,25 +88,26 @@ body.snazy-front #eyeFrame {
   font-weight: 800 !important;
   box-shadow: 0 0 14px rgba(0,255,255,0.35) !important;
 }
-#driverOverlay button.hidden { display: none !important; }
 
 /* ================================
-   VOICE POPUP (driver-owned)
+   VOICE POPUP (Driver-owned)
+   - MUST be present so items show + click
 ================================ */
 #voicePopup {
   width: 360px !important;
   max-height: 340px !important;
   overflow: auto !important;
+
   border-radius: 12px !important;
   padding: 10px !important;
+
   background: rgba(0,0,0,0.88) !important;
   border: 1px solid rgba(0,255,255,0.6) !important;
   color: #00ffff !important;
+
   box-shadow: 0 0 18px rgba(0,255,255,0.18) !important;
 
-  /* ensure popup is ALWAYS above everything */
-  position: relative !important;
-  z-index: 2147483647 !important;
+  /* critical for clickability */
   pointer-events: auto !important;
 }
 
@@ -107,6 +117,7 @@ body.snazy-front #eyeFrame {
   align-items: center !important;
   margin-bottom: 8px !important;
 }
+
 #voicePopupHeader .title {
   opacity: 0.85 !important;
   font-weight: 800 !important;
@@ -117,26 +128,28 @@ body.snazy-front #eyeFrame {
   color: #000 !important;
   border: 0 !important;
   border-radius: 999px !important;
-  padding: 8px 14px !important;
+  padding: 8px 12px !important;
   cursor: pointer !important;
-  font-weight: 900 !important;
-  box-shadow: 0 0 14px rgba(0,255,255,0.35) !important;
+  font-weight: 800 !important;
+  box-shadow: 0 0 14px rgba(0,255,255,0.25) !important;
 }
 
 .voiceItem {
-  padding: 8px 10px !important;
-  border-radius: 10px !important;
+  padding: 10px 12px !important;
+  border-radius: 12px !important;
   cursor: pointer !important;
+
   border: 1px solid rgba(0,255,255,0.18) !important;
-  margin-bottom: 6px !important;
+  margin-bottom: 8px !important;
+
+  color: #00ffff !important;
+  background: rgba(0,0,0,0.35) !important;
+
+  /* critical for hover click */
   pointer-events: auto !important;
 }
-.voiceItem:hover {
-  border-color: rgba(0,255,255,0.55) !important;
-}
 
-/* highlight class for popup hover targeting */
-.driver-hover {
-  outline: 2px solid rgba(0,255,255,0.95) !important;
-  box-shadow: 0 0 10px rgba(0,255,255,0.35) !important;
+.voiceItem:hover {
+  border-color: rgba(0,255,255,0.75) !important;
+  box-shadow: 0 0 12px rgba(0,255,255,0.22) !important;
 }
