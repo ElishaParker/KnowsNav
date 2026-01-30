@@ -91,7 +91,6 @@
     const doc = eyeWin.document;
     if (!doc || !doc.body) return false;
 
-    // smaller ring (75% of prior size)
     if (!doc.getElementById("__knowsnav_cursor")) {
       const cursor = doc.createElement("div");
       cursor.id = "__knowsnav_cursor";
@@ -111,7 +110,6 @@
       doc.body.appendChild(cursor);
     }
 
-    // click pulse effect (iframe cursor only)
     if (!doc.getElementById("__knowsnav_click_style")) {
       const style = doc.createElement("style");
       style.id = "__knowsnav_click_style";
@@ -186,7 +184,7 @@
     } catch {}
   }
 
-  // ---------------- Target detection (EyeWrite) ----------------
+  // ---------------- Target detection (EyeWrite + Snazy) ----------------
   function isClickable(el) {
     if (!el || el.disabled) return false;
     const tag = (el.tagName || "").toLowerCase();
@@ -218,7 +216,7 @@
     return null;
   }
 
-  // ---------------- ✅ NEW: Slider drag support (input[type=range]) ----------------
+  // ---------------- ✅ Slider drag support (generic window) ----------------
   let draggingSlider = false;
   let dragSliderEl = null;
   let dragSliderWin = null;
@@ -253,19 +251,23 @@
     try { el.dispatchEvent(new Event("change", { bubbles: true })); } catch {}
   }
 
-  function beginSliderDrag(eyeWin, el, x, y) {
+  function beginSliderDrag(win, el, x, y) {
     draggingSlider = true;
     dragSliderEl = el;
-    dragSliderWin = eyeWin;
+    dragSliderWin = win;
 
     focusElement(el);
 
-    // “grab” it
-    dispatchPointer(eyeWin, el, "pointerdown", x, y);
-    dispatchMouse(eyeWin, el, "mousedown", x, y);
+    dispatchPointer(win, el, "pointerdown", x, y);
+    dispatchMouse(win, el, "mousedown", x, y);
 
     setRangeValueFromPoint(el, x);
-    pulseCursor(eyeWin);
+
+    // pulse whichever cursor is visible
+    try {
+      if (win === eyeFrame.contentWindow) pulseCursor(win);
+      else pulseDriverCursor();
+    } catch {}
   }
 
   function updateSliderDrag(x, y) {
@@ -417,10 +419,10 @@
     return Math.sqrt(dx*dx + dy*dy);
   }
 
+  // ---------------- EyeWrite click behavior ----------------
   function clickElementEyeWrite(eyeWin, el, x, y) {
     const tag = (el.tagName || "").toLowerCase();
 
-    // ✅ NEW: range sliders start drag mode instead of click
     if (isRangeSlider(el)) {
       beginSliderDrag(eyeWin, el, x, y);
       return;
@@ -452,6 +454,19 @@
     pulseCursor(eyeWin);
   }
 
+  // ---------------- ✅ NEW: Snazy click behavior (controls sliders) ----------------
+  function clickElementSnazy(snazyWin, el, x, y) {
+    if (isRangeSlider(el)) {
+      beginSliderDrag(snazyWin, el, x, y);
+      return;
+    }
+
+    // buttons, etc.
+    dispatchMouse(snazyWin, el, "click", x, y);
+    focusElement(el);
+    pulseDriverCursor();
+  }
+
   // Throttle move events
   let lastMoveSent = 0;
 
@@ -467,8 +482,7 @@
       dispatchMouse(eyeWin, doc, "mousemove", x, y);
     }
 
-    // ✅ NEW: if slider is being dragged, keep updating it and skip normal targeting
-    if (draggingSlider) {
+    if (draggingSlider && dragSliderWin === eyeWin) {
       updateSliderDrag(x, y);
 
       if (distance({ x, y }, lockPos) > UNLOCK_RADIUS_PX) {
@@ -513,6 +527,61 @@
 
     if ((now - pendingSince) >= RETARGET_STABLE_MS) {
       lockOn(target, x, y, "gaze-hover");
+      pendingEl = null; pendingSince = 0;
+    }
+  }
+
+  // ---------------- ✅ NEW: Snazy hover controller (in snazy iframe) ----------------
+  function hoverControllerSnazy(snazyWin, x, y) {
+    const now = performance.now();
+    const doc = snazyWin.document;
+    if (!doc) return;
+
+    if (draggingSlider && dragSliderWin === snazyWin) {
+      updateSliderDrag(x, y);
+
+      if (distance({ x, y }, lockPos) > UNLOCK_RADIUS_PX) {
+        endSliderDrag(x, y);
+        unlock("driver-hover");
+      }
+      return;
+    }
+
+    if (lockedEl) {
+      if (distance({ x, y }, lockPos) > UNLOCK_RADIUS_PX) {
+        unlock("driver-hover");
+      } else {
+        const dwell = now - lockedAt;
+        const cooled = (now - lastClickAt) >= CLICK_COOLDOWN_MS;
+
+        if (dwell >= HOVER_TIME_MS && cooled) {
+          if (REQUIRE_MOVE_TO_RECLICK && lastClickedEl === lockedEl) return;
+          clickElementSnazy(snazyWin, lockedEl, x, y);
+          lastClickAt = now;
+          lastClickedEl = lockedEl;
+          lockedAt = now;
+          lockPos = { x, y };
+        }
+        return;
+      }
+    }
+
+    const raw = doc.elementFromPoint(x, y);
+    const target = findTarget(raw);
+
+    if (!target) {
+      pendingEl = null; pendingSince = 0;
+      return;
+    }
+
+    if (!pendingEl || pendingEl !== target) {
+      pendingEl = target;
+      pendingSince = now;
+      return;
+    }
+
+    if ((now - pendingSince) >= RETARGET_STABLE_MS) {
+      lockOn(target, x, y, "driver-hover");
       pendingEl = null; pendingSince = 0;
     }
   }
@@ -578,7 +647,7 @@
     }
   }
 
-  // ✅ NEW: Parent HUD hover controller (SnazyCam Controls / Back to EyeWrite)
+  // Parent HUD hover controller (SnazyCam Controls / Back to EyeWrite)
   function findHudTarget(el) {
     if (!el) return null;
     if (el.closest) {
@@ -663,6 +732,11 @@
         return;
       }
 
+      // screen-space (snazy iframe fills viewport)
+      const sx = sc.x + X_OFFSET;
+      const sy = sc.y + Y_OFFSET;
+
+      // eye-space mapping for EyeWrite interactions
       let mapped = mapXY({ x: sc.x, y: sc.y }, snazyWin, eyeWin);
       mapped.x += X_OFFSET;
       mapped.y += Y_OFFSET;
@@ -670,14 +744,16 @@
       const tx = Math.round(mapped.x);
       const ty = Math.round(mapped.y);
 
-      // always update both cursors (but show/hide depending on mode)
+      // update iframe cursor (EyeWrite) using eye-space
       const iframeDoc = eyeWin.document;
       const iframeCursor = iframeDoc.getElementById("__knowsnav_cursor");
       if (iframeCursor) {
         iframeCursor.style.left = `${mapped.x}px`;
         iframeCursor.style.top  = `${mapped.y}px`;
       }
-      moveDriverCursor(mapped.x, mapped.y);
+
+      // update parent cursor using screen-space
+      moveDriverCursor(sx, sy);
 
       xyState.textContent = `${tx}, ${ty}`;
       feedState.textContent = "live";
@@ -686,29 +762,38 @@
       const snazyFront = document.body.classList.contains("snazy-front");
       const popupOpen = !!document.getElementById("voicePopup");
 
-      // ✅ NEW: detect if cursor is over HUD controls
-      const overHud = !!findHudTarget(document.elementFromPoint(mapped.x, mapped.y));
+      // parent HUD detection uses screen coords
+      const overHud = !!findHudTarget(document.elementFromPoint(sx, sy));
 
       if (snazyFront) {
-        // Snazy is front: allow HUD hover clicking (Back to EyeWrite button)
-        endSliderDrag(mapped.x, mapped.y);
+        // if we're over parent HUD, click HUD; otherwise drive Snazy iframe (sliders!)
         setDriverCursorVisible(true);
         setIframeCursorVisible(eyeWin, false);
-        hoverControllerHud(mapped.x, mapped.y);
+
+        if (overHud) {
+          // end any slider drag from other surface
+          if (draggingSlider && dragSliderWin !== snazyWin) endSliderDrag(sx, sy);
+          hoverControllerHud(sx, sy);
+        } else {
+          hoverControllerSnazy(snazyWin, sx, sy);
+        }
+
       } else if (popupOpen) {
-        // popup in parent -> use parent cursor and hide iframe cursor
-        endSliderDrag(mapped.x, mapped.y);
+        // popup in parent -> parent cursor
+        if (draggingSlider && dragSliderWin) endSliderDrag(sx, sy);
         setDriverCursorVisible(true);
         setIframeCursorVisible(eyeWin, false);
-        hoverControllerPopup(mapped.x, mapped.y);
+        hoverControllerPopup(sx, sy);
+
       } else if (overHud) {
-        // hovering HUD -> use parent cursor so it appears ABOVE the button and is clickable
-        endSliderDrag(mapped.x, mapped.y);
+        // hovering parent HUD
+        if (draggingSlider && dragSliderWin) endSliderDrag(sx, sy);
         setDriverCursorVisible(true);
         setIframeCursorVisible(eyeWin, false);
-        hoverControllerHud(mapped.x, mapped.y);
+        hoverControllerHud(sx, sy);
+
       } else {
-        // normal EyeWrite -> use iframe cursor + iframe hover
+        // normal EyeWrite
         setDriverCursorVisible(false);
         setIframeCursorVisible(eyeWin, true);
         hoverControllerEyeWrite(eyeWin, mapped.x, mapped.y);
