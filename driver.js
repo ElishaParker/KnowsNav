@@ -47,6 +47,45 @@
     return { x: snazyXY.x * (ex / sx), y: snazyXY.y * (ey / sy) };
   }
 
+  // ---------------- Parent cursor (over popup) ----------------
+  function ensureDriverCursor() {
+    let el = document.getElementById("driverCursor");
+    if (el) return el;
+
+    el = document.createElement("div");
+    el.id = "driverCursor";
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function setDriverCursorVisible(on) {
+    const c = ensureDriverCursor();
+    c.style.display = on ? "block" : "none";
+  }
+
+  function moveDriverCursor(x, y) {
+    const c = ensureDriverCursor();
+    c.style.left = `${x}px`;
+    c.style.top  = `${y}px`;
+  }
+
+  function pulseDriverCursor() {
+    try {
+      const c = ensureDriverCursor();
+      c.classList.remove("knowsnav-click");
+      void c.offsetWidth;
+      c.classList.add("knowsnav-click");
+    } catch {}
+  }
+
+  function setIframeCursorVisible(eyeWin, on) {
+    try {
+      const c = eyeWin.document.getElementById("__knowsnav_cursor");
+      if (!c) return;
+      c.style.display = on ? "block" : "none";
+    } catch {}
+  }
+
   // ---------------- Overlay injection ----------------
   function ensureEyewriteInjected(eyeWin) {
     const doc = eyeWin.document;
@@ -72,7 +111,7 @@
       doc.body.appendChild(cursor);
     }
 
-    // click pulse effect
+    // click pulse effect (iframe cursor only)
     if (!doc.getElementById("__knowsnav_click_style")) {
       const style = doc.createElement("style");
       style.id = "__knowsnav_click_style";
@@ -142,7 +181,7 @@
       const c = eyeWin.document.getElementById("__knowsnav_cursor");
       if (!c) return;
       c.classList.remove("knowsnav-click");
-      void c.offsetWidth; // restart animation
+      void c.offsetWidth;
       c.classList.add("knowsnav-click");
     } catch {}
   }
@@ -179,7 +218,7 @@
     return null;
   }
 
-  // ---------------- Bug #1 caret placement (contenteditable) ----------------
+  // ---------------- caret placement (contenteditable) ----------------
   function setCaretAtPoint(eyeWin, el, x, y) {
     const doc = eyeWin.document;
     if (!el.isContentEditable) return;
@@ -206,61 +245,60 @@
     }
   }
 
-// ---------------- Voice popup (triggered by real dropdown) ----------------
-function closeVoicePopup() {
-  const existing = document.getElementById("voicePopup");
-  if (existing) existing.remove();
-}
+  // ---------------- Voice popup ----------------
+  function closeVoicePopup() {
+    const existing = document.getElementById("voicePopup");
+    if (existing) existing.remove();
+    setDriverCursorVisible(false);
+  }
 
-function openVoicePopupFromSelect(selectEl) {
-  closeVoicePopup();
+  function openVoicePopupFromSelect(selectEl) {
+    closeVoicePopup();
 
-  // IMPORTANT: driverStatus is the correct container now
-  const overlay = document.getElementById("driverStatus");
-  if (!overlay) return;
+    const overlay = document.getElementById("driverStatus");
+    if (!overlay) return;
 
-  const popup = document.createElement("div");
-  popup.id = "voicePopup";
+    const popup = document.createElement("div");
+    popup.id = "voicePopup";
 
-  const header = document.createElement("div");
-  header.id = "voicePopupHeader";
+    const header = document.createElement("div");
+    header.id = "voicePopupHeader";
 
-  const title = document.createElement("div");
-  title.className = "title";
-  title.textContent = "Select Voice";
+    const title = document.createElement("div");
+    title.className = "title";
+    title.textContent = "Select Voice";
 
-  const closeBtn = document.createElement("button");
-  closeBtn.id = "voicePopupClose";
-  closeBtn.textContent = "Close";
-  closeBtn.addEventListener("click", closeVoicePopup);
+    const closeBtn = document.createElement("button");
+    closeBtn.id = "voicePopupClose";
+    closeBtn.textContent = "Close";
+    closeBtn.addEventListener("click", closeVoicePopup);
 
-  header.appendChild(title);
-  header.appendChild(closeBtn);
-  popup.appendChild(header);
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    popup.appendChild(header);
 
-  const opts = Array.from(selectEl.options || []);
-  opts.forEach((opt) => {
-    const item = document.createElement("div");
-    item.className = "voiceItem";
-    item.textContent = opt.textContent;
+    const opts = Array.from(selectEl.options || []);
+    opts.forEach((opt) => {
+      const item = document.createElement("div");
+      item.className = "voiceItem";
+      item.textContent = opt.textContent;
 
-    item.addEventListener("click", () => {
-      try {
-        selectEl.value = opt.value;
-        selectEl.dispatchEvent(new Event("change", { bubbles: true }));
-      } catch {}
-      closeVoicePopup();
+      item.addEventListener("click", () => {
+        try {
+          selectEl.value = opt.value;
+          selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch {}
+        closeVoicePopup();
+      });
+
+      popup.appendChild(item);
     });
 
-    popup.appendChild(item);
-  });
+    overlay.insertBefore(popup, overlay.firstChild);
+    setDriverCursorVisible(true);
+  }
 
-  // Insert popup ABOVE the status panel
-  overlay.insertBefore(popup, overlay.firstChild);
-}
-
-
-  // ---------------- Auto disable EyeWrite hover (prevents double letters) ----------------
+  // ---------------- Auto disable EyeWrite hover ----------------
   let hoverToggledOff = false;
 
   function disableEyewriteHoverIfOn(eyeWin) {
@@ -276,7 +314,7 @@ function openVoicePopupFromSelect(selectEl) {
     }
   }
 
-  // ---------------- Locked hover engine (shared) ----------------
+  // ---------------- Locked hover engine ----------------
   let lockedEl = null;
   let lockedAt = 0;
   let lockPos = { x: 0, y: 0 };
@@ -406,6 +444,7 @@ function openVoicePopupFromSelect(selectEl) {
     try { el.click(); } catch {
       try { dispatchMouse(window, el, "click", 0, 0); } catch {}
     }
+    pulseDriverCursor();
   }
 
   function hoverControllerPopup(x, y) {
@@ -413,7 +452,6 @@ function openVoicePopupFromSelect(selectEl) {
     const popup = document.getElementById("voicePopup");
     if (!popup) return;
 
-    // If we are locked on something but user moved away -> unlock
     if (lockedEl) {
       if (distance({ x, y }, lockPos) > UNLOCK_RADIUS_PX) {
         unlock("driver-hover");
@@ -486,28 +524,38 @@ function openVoicePopupFromSelect(selectEl) {
       const tx = Math.round(mapped.x);
       const ty = Math.round(mapped.y);
 
-      const doc = eyeWin.document;
-      const cursor = doc.getElementById("__knowsnav_cursor");
-      if (cursor) {
-        cursor.style.left = `${mapped.x}px`;
-        cursor.style.top  = `${mapped.y}px`;
+      // always update both cursors (but show/hide depending on popup)
+      const iframeDoc = eyeWin.document;
+      const iframeCursor = iframeDoc.getElementById("__knowsnav_cursor");
+      if (iframeCursor) {
+        iframeCursor.style.left = `${mapped.x}px`;
+        iframeCursor.style.top  = `${mapped.y}px`;
       }
+      moveDriverCursor(mapped.x, mapped.y);
 
       xyState.textContent = `${tx}, ${ty}`;
       feedState.textContent = "live";
       lastGood = performance.now();
 
       const snazyFront = document.body.classList.contains("snazy-front");
+      const popupOpen = !!document.getElementById("voicePopup");
 
       if (!snazyFront) {
-        // If popup is open, we target popup in PARENT doc instead of EyeWrite iframe
-        if (document.getElementById("voicePopup")) {
+        if (popupOpen) {
+          // popup in parent -> use parent cursor and hide iframe cursor
+          setDriverCursorVisible(true);
+          setIframeCursorVisible(eyeWin, false);
           hoverControllerPopup(mapped.x, mapped.y);
         } else {
+          // normal -> use iframe cursor and hide parent cursor
+          setDriverCursorVisible(false);
+          setIframeCursorVisible(eyeWin, true);
           hoverControllerEyeWrite(eyeWin, mapped.x, mapped.y);
         }
       } else {
         closeVoicePopup();
+        setDriverCursorVisible(false);
+        setIframeCursorVisible(eyeWin, true);
         unlock("gaze-hover");
         unlock("driver-hover");
       }
