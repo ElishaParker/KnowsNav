@@ -1,4 +1,4 @@
-🌱 KnowsNav – Accessibility-First Description (Professional Marketing Tone)
+🌱 KnowsNav – Accessibility-First Description 
 
 KnowsNav is an accessibility-focused, hands-free interaction technology designed to help individuals with disabilities navigate, write, and communicate on the internet without the use of a mouse or keyboard.
 
