@@ -1,273 +1,228 @@
 /*
  * driver.js — KnowsNav integration driver (EyeWrite + SnazyCam)
  *
- * Goals:
- *  1) Preserve BOTH codebases (EyeWrite + SnazyCam) with zero edits to their internal files.
- *  2) Keep SnazyCam tracking always running in the background (video + overlay active),
- *     while EyeWrite remains the primary visible UI.
- *  3) Lock EyeWrite hover/cursor movement to SnazyCam's exported cursor: window.smoothedCursor.
- *  4) Use ONE KnowsNav button to toggle SnazyCam's SETTINGS PANEL on top layer.
- *     (SnazyCam's own "Open Controls" button is hidden/disabled to prevent duplicate toggles.)
+ * Bench Goals (Step 1):
+ *  - SnazyCam always runs (camera + overlay + tracking loop never stops)
+ *  - EyeWrite stays on top as the primary UI
+ *  - SnazyCam’s OWN Controls button stays visible (bottom-right)
+ *  - When SnazyCam Controls panel is OPEN:
+ *        SnazyCam video+overlay comes to TOP so user sees full tracker UI
+ *  - When Controls panel is CLOSED:
+ *        SnazyCam goes back behind EyeWrite (still running)
+ *  - SnazyCam cursor drives EyeWrite cursor via synthetic mousemove
  *
- * This file intentionally avoids modifying snazycam/*.js and eyewrite/*.js.
+ * IMPORTANT:
+ *  - We do NOT “replace” SnazyCam logic. We READ its output.
+ *  - Best source is SnazyCam’s exported cursor object (commonly window.smoothedCursor).
+ *  - If your build also prints X/Y into a DOM element, we attempt a DOM parse fallback.
  */
 
 (() => {
-  // ----------------------------
-  // DOM references (from index.html)
-  // ----------------------------
-  const snazyContainer = document.getElementById('snazycam-container');
-  const toggleBtn       = document.getElementById('snazycam-toggle-btn');
-
-  if (!snazyContainer || !toggleBtn) {
-    console.error('[KnowsNav] Missing #snazycam-container or #snazycam-toggle-btn in index.html');
+  const snazyContainer = document.getElementById("snazycam-container");
+  if (!snazyContainer) {
+    console.error("[KnowsNav] Missing #snazycam-container");
     return;
   }
 
-  // SnazyCam creates these dynamically (controls.js)
-  let snazyPanel         = null; // the right-side settings panel
-  let snazyControlsToggle = null; // SnazyCam's own open/close button (we will hide/disable it)
-
-  let snazyPanelVisible = false; // our single source of truth
-  let scriptsLoaded     = false;
-
   // ----------------------------
-  // Ensure SnazyCam stays "running" in background but initially hidden
-  // SnazyContainer stays display:block; hidden via opacity/pointerEvents.
+  // Layer modes
   // ----------------------------
-  function setSnazyHiddenMode() {
-    snazyContainer.style.opacity       = '0';
-    snazyContainer.style.pointerEvents = 'none';
-    snazyContainer.style.zIndex        = '0';
+  function setSnazyBehind() {
+    snazyContainer.style.zIndex = "0";
+    snazyContainer.style.opacity = "0";          // hidden but still running
+    snazyContainer.style.pointerEvents = "none";
   }
 
-  function setSnazyVisibleMode() {
-    snazyContainer.style.opacity       = '1';
-    snazyContainer.style.pointerEvents = 'auto';
-    // Slightly below the EyeWrite cursor ring
-    snazyContainer.style.zIndex        = '2000';
+  function setSnazyOnTop() {
+    // Put SnazyCam ABOVE EyeWrite so full tracker UI is visible
+    snazyContainer.style.zIndex = "5000";
+    snazyContainer.style.opacity = "1";
+    snazyContainer.style.pointerEvents = "auto";
   }
 
-  // ----------------------------
-  // Find SnazyCam panel + its internal toggle button after controls.js loads
-  // ----------------------------
-  function findSnazyElements() {
-    snazyPanel         = null;
-    snazyControlsToggle = null;
-
-    // Identify the control panel by fixed position, right alignment, and cyan border.
-    const divs = Array.from(document.querySelectorAll('div'));
-    for (const el of divs) {
-      const cs = window.getComputedStyle(el);
-      const looksLikePanel =
-        cs.position === 'fixed' &&
-        (cs.right === '0px' || cs.right === '10px') &&
-        cs.borderStyle === 'solid' &&
-        cs.borderWidth !== '0px' &&
-        (cs.maxWidth === '260px' || cs.maxWidth === '280px');
-
-      if (looksLikePanel) {
-        snazyPanel = el;
-        break;
-      }
-    }
-
-    // Identify SnazyCam's own "Open/Close Controls" button and hide it
-    const btns = Array.from(document.querySelectorAll('button'));
-    for (const el of btns) {
-      if (el === toggleBtn) continue;
-      const cs  = window.getComputedStyle(el);
-      const txt = (el.textContent || '').toLowerCase();
-      const looksLikeSnazyToggle =
-        cs.position === 'fixed' && (txt.includes('open controls') || txt.includes('close controls') || txt.includes('controls'));
-
-      if (looksLikeSnazyToggle) {
-        snazyControlsToggle = el;
-        break;
-      }
-    }
-
-    // Hide SnazyCam's own toggle button
-    if (snazyControlsToggle) {
-      snazyControlsToggle.style.display       = 'none';
-      snazyControlsToggle.style.pointerEvents = 'none';
-      snazyControlsToggle.setAttribute('aria-hidden', 'true');
-    }
-
-    // Set panel layering
-    if (snazyPanel) {
-      snazyPanel.style.zIndex        = '3000'; // above SnazyContainer and EyeWrite ring
-      snazyPanel.style.pointerEvents = 'auto';
-    }
-
-    // Apply current visibility state
-    if (snazyPanelVisible) showSnazyPanel();
-    else hideSnazyPanel();
-  }
+  // Always start behind
+  setSnazyBehind();
 
   // ----------------------------
-  // Load SnazyCam extra scripts only once (controls + hover click)
-  // nose.js is loaded in index.html and runs immediately.
-  // ----------------------------
-  function loadSnazyScripts(cb) {
-    if (scriptsLoaded) {
-      findSnazyElements();
-      cb();
-      return;
-    }
-
-    let pending = 2;
-    const done  = () => {
-      pending--;
-      if (pending === 0) {
-        scriptsLoaded = true;
-        // Give the DOM time for controls.js to append its panel
-        setTimeout(() => {
-          findSnazyElements();
-          cb();
-        }, 50);
-      }
-    };
-
-    const script1 = document.createElement('script');
-    script1.src   = 'snazycam/controls.js';
-    script1.onload = done;
-    script1.onerror = () => {
-      console.error('[KnowsNav] Failed to load snazycam/controls.js');
-      done();
-    };
-    document.body.appendChild(script1);
-
-    const script2 = document.createElement('script');
-    script2.src   = 'snazycam/hoverClick.js';
-    script2.onload = done;
-    script2.onerror = () => {
-      console.error('[KnowsNav] Failed to load snazycam/hoverClick.js');
-      done();
-    };
-    document.body.appendChild(script2);
-  }
-
-  // ----------------------------
-  // Show/hide the SnazyCam panel and video feed (our toggle)
-  // ----------------------------
-  function showSnazyPanel() {
-    // Make SnazyCam visible (video + overlay)
-    setSnazyVisibleMode();
-
-    // Show SnazyCam panel
-    if (snazyPanel) {
-      snazyPanel.style.display       = '';
-      snazyPanel.style.opacity        = '1';
-      snazyPanel.style.pointerEvents  = 'auto';
-    }
-
-    snazyPanelVisible = true;
-    toggleBtn.textContent = 'Hide SnazyCam';
-  }
-
-  function hideSnazyPanel() {
-    // Keep SnazyCam running but hidden
-    setSnazyHiddenMode();
-
-    // Hide SnazyCam panel
-    if (snazyPanel) {
-      snazyPanel.style.display = 'none';
-    }
-
-    snazyPanelVisible = false;
-    toggleBtn.textContent = 'SnazyCam Controls';
-  }
-
-  // ----------------------------
-  // Single-toggle button (KnowsNav button)
-  // ----------------------------
-  toggleBtn.addEventListener('click', () => {
-    if (!scriptsLoaded) {
-      // Lazily load SnazyCam controls and hoverClick scripts if not loaded
-      loadSnazyScripts(() => {
-        // After loading, toggle visibility
-        if (snazyPanelVisible) hideSnazyPanel();
-        else showSnazyPanel();
-      });
-      return;
-    }
-
-    // Toggle panel visibility
-    if (snazyPanelVisible) hideSnazyPanel();
-    else showSnazyPanel();
-  });
-
-  // ----------------------------
-  // Sync hover time between EyeWrite modes and SnazyCam hoverClick.js
-  // EyeWrite displays mode label in #kbMode (Precision vs QuickType)
-  // ----------------------------
-  function updateHoverTime() {
-    const modeEl = document.getElementById('kbMode');
-    if (!modeEl) return;
-    const label  = (modeEl.textContent || '').toLowerCase();
-    const isQuick = label.includes('quicktype');
-    window.HOVER_TIME = isQuick ? 700 : 1500;
-  }
-
-  const kbToggle = document.getElementById('kbToggle');
-  if (kbToggle) {
-    kbToggle.addEventListener('click', () => {
-      setTimeout(updateHoverTime, 50);
-    });
-  }
-  updateHoverTime();
-
-  // ----------------------------
-  // Force EyeWrite cursor ring visible and on top
-  // (fixes "no cursor at all now" cases)
+  // Keep EyeWrite cursor ring visible
   // ----------------------------
   function forceCursorRingVisible() {
-    const ring = document.getElementById('cursorRing');
+    const ring = document.getElementById("cursorRing");
     if (!ring) return;
-    ring.classList.remove('hidden');
-    ring.style.display       = 'block';
-    ring.style.position       = 'fixed';
-    ring.style.zIndex         = '2500';
-    ring.style.pointerEvents  = 'none';
+    ring.classList.remove("hidden");
+    ring.style.display = "block";
+    ring.style.position = "fixed";
+    ring.style.zIndex = "6000"; // above SnazyCam when SnazyCam is on top
+    ring.style.pointerEvents = "none";
   }
-  // Run once now + again after everything initializes
   forceCursorRingVisible();
-  setTimeout(forceCursorRingVisible, 500);
-  setTimeout(forceCursorRingVisible, 1500);
+  setTimeout(forceCursorRingVisible, 300);
+  setTimeout(forceCursorRingVisible, 1200);
 
   // ----------------------------
-  // Dispatch synthetic mouse move from SnazyCam -> EyeWrite
-  // Uses SnazyCam exported cursor: window.smoothedCursor {x,y}
+  // Find SnazyCam’s existing UI elements:
+  //  - its panel (Tracking Settings)
+  //  - its button (Open/Close Controls)
   // ----------------------------
+  let snazyPanel = null;
+  let snazyBtn = null;
+
+  function findSnazyUI() {
+    // Panel: usually a fixed div on right with cyan border
+    const divs = Array.from(document.querySelectorAll("div"));
+    snazyPanel = divs.find((el) => {
+      const cs = getComputedStyle(el);
+      const txt = (el.textContent || "").toLowerCase();
+      return (
+        cs.position === "fixed" &&
+        (cs.right === "0px" || cs.right === "10px") &&
+        cs.borderStyle === "solid" &&
+        cs.borderWidth !== "0px" &&
+        (txt.includes("tracking settings") || txt.includes("smoothing alpha"))
+      );
+    }) || null;
+
+    // Button: fixed button that says Open/Close Controls (SnazyCam original)
+    const btns = Array.from(document.querySelectorAll("button"));
+    snazyBtn = btns.find((el) => {
+      const cs = getComputedStyle(el);
+      const txt = (el.textContent || "").toLowerCase();
+      return (
+        cs.position === "fixed" &&
+        txt.includes("controls") &&
+        // exclude EyeWrite toolbar buttons (not fixed)
+        (txt.includes("open") || txt.includes("close"))
+      );
+    }) || null;
+
+    // Ensure SnazyCam button stays visible + bottom-right
+    if (snazyBtn) {
+      snazyBtn.style.zIndex = "7000";
+      snazyBtn.style.right = "10px";
+      snazyBtn.style.bottom = "10px";
+      snazyBtn.style.top = "auto";
+      snazyBtn.style.left = "auto";
+      snazyBtn.style.position = "fixed";
+      snazyBtn.style.display = "";
+      snazyBtn.style.pointerEvents = "auto";
+    }
+
+    // Ensure panel above EyeWrite when visible
+    if (snazyPanel) {
+      snazyPanel.style.zIndex = "7000";
+      snazyPanel.style.pointerEvents = "auto";
+    }
+  }
+
+  // Try now, then again later (SnazyCam appends UI after load)
+  findSnazyUI();
+  setTimeout(findSnazyUI, 400);
+  setTimeout(findSnazyUI, 1200);
+
+  // ----------------------------
+  // Detect whether Snazy panel is OPEN, then set SnazyCam layer mode
+  // We do NOT control SnazyCam’s internal open/close logic.
+  // We observe it.
+  // ----------------------------
+  function isPanelOpen() {
+    if (!snazyPanel) return false;
+    const cs = getComputedStyle(snazyPanel);
+    // In your controls.js, panel fades via opacity and pointerEvents (not display none)
+    const visibleByOpacity = parseFloat(cs.opacity || "1") > 0.2;
+    const interactive = cs.pointerEvents !== "none";
+    const notDisplayNone = cs.display !== "none";
+    return notDisplayNone && visibleByOpacity && interactive;
+  }
+
+  // Watch for changes (panel open/close)
+  const mo = new MutationObserver(() => {
+    findSnazyUI();
+    if (isPanelOpen()) setSnazyOnTop();
+    else setSnazyBehind();
+  });
+
+  mo.observe(document.documentElement, {
+    attributes: true,
+    childList: true,
+    subtree: true,
+  });
+
+  // Also poll lightly (safe fallback)
+  setInterval(() => {
+    findSnazyUI();
+    if (isPanelOpen()) setSnazyOnTop();
+    else setSnazyBehind();
+  }, 250);
+
+  // ----------------------------
+  // Cursor Bridge:
+  // Read SnazyCam cursor output -> drive EyeWrite via synthetic mousemove.
+  // ----------------------------
+
+  function parseXYFromDOM() {
+    // If your SnazyCam writes coordinates to a DOM element like: "X: 253, Y: 441"
+    // this will find it. If the text is drawn onto canvas, this will NOT work.
+    const all = Array.from(document.querySelectorAll("div,span,p"));
+    for (const el of all) {
+      const t = (el.textContent || "").trim();
+      if (!t) continue;
+      const m = t.match(/x:\s*(-?\d+)\s*,\s*y:\s*(-?\d+)/i);
+      if (m) return { x: parseInt(m[1], 10), y: parseInt(m[2], 10) };
+    }
+    return null;
+  }
+
+  function getSnazyCursor() {
+    // Preferred: exported cursor object
+    // (your earlier integration used window.smoothedCursor already)
+    const sc = window.smoothedCursor;
+    if (sc && typeof sc.x === "number" && typeof sc.y === "number") {
+      return { x: sc.x, y: sc.y };
+    }
+
+    // Fallback if SnazyCam exports something else
+    if (typeof window.cursorX === "number" && typeof window.cursorY === "number") {
+      return { x: window.cursorX, y: window.cursorY };
+    }
+
+    // Last fallback: DOM text readout (only if it exists as DOM text)
+    const domXY = parseXYFromDOM();
+    if (domXY) return domXY;
+
+    return null;
+  }
+
   function dispatchMouseMove(x, y) {
-    const evt = new MouseEvent('mousemove', {
+    const evt = new MouseEvent("mousemove", {
       clientX: x,
       clientY: y,
-      bubbles:  true,
+      bubbles: true,
       cancelable: true,
-      view: window
+      view: window,
     });
     document.dispatchEvent(evt);
   }
 
   function animate() {
-    const sc = window.smoothedCursor;
-    if (sc && typeof sc.x === 'number' && typeof sc.y === 'number') {
-      dispatchMouseMove(sc.x, sc.y);
-    }
+    const xy = getSnazyCursor();
+    if (xy) dispatchMouseMove(xy.x, xy.y);
     requestAnimationFrame(animate);
   }
-
-  // ----------------------------
-  // Initialize hidden mode immediately
-  // ----------------------------
-  setSnazyHiddenMode();
-  hideSnazyPanel();
-
-  // Start animation loop
   requestAnimationFrame(animate);
 
-  // Re-scan Snazy elements after a moment (in case scripts load later)
-  setTimeout(findSnazyElements, 1000);
+  // ----------------------------
+  // Sync HOVER_TIME (optional bridge)
+  // ----------------------------
+  function updateHoverTime() {
+    const modeEl = document.getElementById("kbMode");
+    if (!modeEl) return;
+    const label = (modeEl.textContent || "").toLowerCase();
+    const isQuick = label.includes("quicktype");
+    window.HOVER_TIME = isQuick ? 700 : 1500;
+  }
+  const kbToggle = document.getElementById("kbToggle");
+  if (kbToggle) kbToggle.addEventListener("click", () => setTimeout(updateHoverTime, 50));
+  updateHoverTime();
+
+  console.log("✅ KnowsNav driver initialized: SnazyCam running + layer observer + cursor bridge");
 })();
