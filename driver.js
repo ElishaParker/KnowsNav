@@ -1,4 +1,4 @@
-(() => {
+(() => { 
   const snazyFrame = document.getElementById("snazyFrame");
   const eyeFrame   = document.getElementById("eyeFrame");
 
@@ -218,6 +218,76 @@
     return null;
   }
 
+  // ---------------- ✅ NEW: Slider drag support (input[type=range]) ----------------
+  let draggingSlider = false;
+  let dragSliderEl = null;
+  let dragSliderWin = null;
+
+  function isRangeSlider(el) {
+    const tag = (el?.tagName || "").toLowerCase();
+    if (tag !== "input") return false;
+    const t = (el.getAttribute?.("type") || "").toLowerCase();
+    return t === "range";
+  }
+
+  function setRangeValueFromPoint(el, clientX) {
+    const r = el.getBoundingClientRect();
+    const min = Number(el.min ?? 0);
+    const max = Number(el.max ?? 100);
+    const stepAttr = el.step ?? "1";
+    const step = (stepAttr === "any") ? 0 : Number(stepAttr || 1);
+
+    let pct = (clientX - r.left) / (r.width || 1);
+    pct = Math.max(0, Math.min(1, pct));
+
+    let val = min + pct * (max - min);
+
+    if (step > 0) {
+      val = Math.round((val - min) / step) * step + min;
+      val = Number(val.toFixed(6));
+    }
+
+    el.value = String(val);
+
+    try { el.dispatchEvent(new Event("input", { bubbles: true })); } catch {}
+    try { el.dispatchEvent(new Event("change", { bubbles: true })); } catch {}
+  }
+
+  function beginSliderDrag(eyeWin, el, x, y) {
+    draggingSlider = true;
+    dragSliderEl = el;
+    dragSliderWin = eyeWin;
+
+    focusElement(el);
+
+    // “grab” it
+    dispatchPointer(eyeWin, el, "pointerdown", x, y);
+    dispatchMouse(eyeWin, el, "mousedown", x, y);
+
+    setRangeValueFromPoint(el, x);
+    pulseCursor(eyeWin);
+  }
+
+  function updateSliderDrag(x, y) {
+    if (!draggingSlider || !dragSliderEl || !dragSliderWin) return;
+
+    dispatchPointer(dragSliderWin, dragSliderEl, "pointermove", x, y);
+    dispatchMouse(dragSliderWin, dragSliderEl, "mousemove", x, y);
+
+    setRangeValueFromPoint(dragSliderEl, x);
+  }
+
+  function endSliderDrag(x, y) {
+    if (!draggingSlider || !dragSliderEl || !dragSliderWin) return;
+
+    dispatchPointer(dragSliderWin, dragSliderEl, "pointerup", x, y);
+    dispatchMouse(dragSliderWin, dragSliderEl, "mouseup", x, y);
+
+    draggingSlider = false;
+    dragSliderEl = null;
+    dragSliderWin = null;
+  }
+
   // ---------------- caret placement (contenteditable) ----------------
   function setCaretAtPoint(eyeWin, el, x, y) {
     const doc = eyeWin.document;
@@ -350,6 +420,12 @@
   function clickElementEyeWrite(eyeWin, el, x, y) {
     const tag = (el.tagName || "").toLowerCase();
 
+    // ✅ NEW: range sliders start drag mode instead of click
+    if (isRangeSlider(el)) {
+      beginSliderDrag(eyeWin, el, x, y);
+      return;
+    }
+
     if (tag === "select") {
       focusElement(el);
       openVoicePopupFromSelect(el);
@@ -389,6 +465,17 @@
       lastMoveSent = now;
       dispatchPointer(eyeWin, doc, "pointermove", x, y);
       dispatchMouse(eyeWin, doc, "mousemove", x, y);
+    }
+
+    // ✅ NEW: if slider is being dragged, keep updating it and skip normal targeting
+    if (draggingSlider) {
+      updateSliderDrag(x, y);
+
+      if (distance({ x, y }, lockPos) > UNLOCK_RADIUS_PX) {
+        endSliderDrag(x, y);
+        unlock("gaze-hover");
+      }
+      return;
     }
 
     if (lockedEl) {
@@ -604,16 +691,19 @@
 
       if (snazyFront) {
         // Snazy is front: allow HUD hover clicking (Back to EyeWrite button)
+        endSliderDrag(mapped.x, mapped.y);
         setDriverCursorVisible(true);
         setIframeCursorVisible(eyeWin, false);
         hoverControllerHud(mapped.x, mapped.y);
       } else if (popupOpen) {
         // popup in parent -> use parent cursor and hide iframe cursor
+        endSliderDrag(mapped.x, mapped.y);
         setDriverCursorVisible(true);
         setIframeCursorVisible(eyeWin, false);
         hoverControllerPopup(mapped.x, mapped.y);
       } else if (overHud) {
-        // ✅ NEW: hovering HUD -> use parent cursor so it appears ABOVE the button and is clickable
+        // hovering HUD -> use parent cursor so it appears ABOVE the button and is clickable
+        endSliderDrag(mapped.x, mapped.y);
         setDriverCursorVisible(true);
         setIframeCursorVisible(eyeWin, false);
         hoverControllerHud(mapped.x, mapped.y);
