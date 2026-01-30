@@ -37,19 +37,14 @@ body.snazy-front #eyeFrame {
   pointer-events: none !important;
 }
 
-/* =========================================================
-   DRIVER HUD SPLIT INTO TWO ANCHORS
-   - Left: SnazyCam Controls (BOTTOM-LEFT)
-   - Right: Status + Voice Popup (BOTTOM-RIGHT)
-========================================================= */
-
 /* ================================
-   LEFT HUD (BOTTOM-LEFT)
-   SnazyCam Controls / Back to EyeWrite
+   DRIVER OVERLAY (BOTTOM-LEFT)
+   Status stacked ABOVE buttons
 ================================ */
-#driverControls {
+#driverOverlay {
   position: fixed !important;
   left: 12px !important;
+  right: auto !important;
   bottom: 12px !important;
   z-index: 2147483647 !important;
 
@@ -61,44 +56,7 @@ body.snazy-front #eyeFrame {
   pointer-events: auto !important;
 }
 
-/* ================================
-   RIGHT HUD (BOTTOM-RIGHT)
-   Status box + Voice Popup
-================================ */
-#driverStatus {
-  position: fixed !important;
-  right: 12px !important;
-  bottom: 12px !important;
-  z-index: 2147483647 !important;
-
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-end !important;
-  gap: 10px !important;
-
-  pointer-events: auto !important;
-}
-
-/* ================================
-   BUTTONS (shared styling)
-================================ */
-#driverControls button,
-#driverStatus button {
-  border: 0 !important;
-  border-radius: 999px !important;
-  padding: 10px 14px !important;
-  cursor: pointer !important;
-  background: #00ffff !important;
-  color: #000 !important;
-  font-weight: 800 !important;
-  box-shadow: 0 0 14px rgba(0,255,255,0.35) !important;
-}
-
-.hidden { display: none !important; }
-
-/* ================================
-   STATUS READOUT (BOTTOM-RIGHT)
-================================ */
+/* Status readout */
 #status {
   min-width: 220px !important;
   border-radius: 12px !important;
@@ -108,33 +66,38 @@ body.snazy-front #eyeFrame {
   color: #00ffff !important;
   box-shadow: 0 0 18px rgba(0,255,255,0.18) !important;
 }
-
 #status .label { opacity: 0.75 !important; }
+
+/* Buttons */
+#driverOverlay button {
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 10px 14px !important;
+  cursor: pointer !important;
+  background: #00ffff !important;
+  color: #000 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 0 14px rgba(0,255,255,0.35) !important;
+}
+#driverOverlay button.hidden { display: none !important; }
 
 /* ================================
    VOICE POPUP (driver-owned)
-   MUST be clickable + highlightable
 ================================ */
 #voicePopup {
-  position: relative !important;
-  z-index: 2147483647 !important;
-  pointer-events: auto !important;
-
   width: 360px !important;
   max-height: 340px !important;
   overflow: auto !important;
-
   border-radius: 12px !important;
   padding: 10px !important;
-
-  background: rgba(0, 0, 0, 0.92) !important;
+  background: rgba(0,0,0,0.88) !important;
   border: 1px solid rgba(0,255,255,0.6) !important;
   color: #00ffff !important;
-
   box-shadow: 0 0 18px rgba(0,255,255,0.18) !important;
-}
 
-#voicePopup * {
+  /* ensure popup is ALWAYS above everything */
+  position: relative !important;
+  z-index: 2147483647 !important;
   pointer-events: auto !important;
 }
 
@@ -144,41 +107,36 @@ body.snazy-front #eyeFrame {
   align-items: center !important;
   margin-bottom: 8px !important;
 }
-
 #voicePopupHeader .title {
   opacity: 0.85 !important;
   font-weight: 800 !important;
 }
 
 #voicePopupClose {
-  background: transparent !important;
-  color: #00ffff !important;
-  border: 1px solid rgba(0,255,255,0.35) !important;
-  border-radius: 10px !important;
-  padding: 6px 10px !important;
+  background: #00ffff !important;
+  color: #000 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 8px 14px !important;
   cursor: pointer !important;
-  box-shadow: none !important;
+  font-weight: 900 !important;
+  box-shadow: 0 0 14px rgba(0,255,255,0.35) !important;
 }
 
 .voiceItem {
-  user-select: none !important;
-  color: #00ffff !important;
-
-  padding: 10px 12px !important;
+  padding: 8px 10px !important;
   border-radius: 10px !important;
   cursor: pointer !important;
-
-  border: 1px solid rgba(0,255,255,0.22) !important;
-  background: rgba(0,0,0,0.15) !important;
-
-  margin-bottom: 8px !important;
+  border: 1px solid rgba(0,255,255,0.18) !important;
+  margin-bottom: 6px !important;
+  pointer-events: auto !important;
 }
-
 .voiceItem:hover {
-  border-color: rgba(0,255,255,0.80) !important;
-  background: rgba(0,255,255,0.12) !important;
+  border-color: rgba(0,255,255,0.55) !important;
 }
 
-.voiceItem:active {
-  background: rgba(0,255,255,0.22) !important;
+/* highlight class for popup hover targeting */
+.driver-hover {
+  outline: 2px solid rgba(0,255,255,0.95) !important;
+  box-shadow: 0 0 10px rgba(0,255,255,0.35) !important;
 }
