@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KnowsNav Driver Shell</title>
+  <link rel="stylesheet" href="./driver.css" />
+</head>
+<body>
+  <!-- Background layer: SnazyCam -->
+  <iframe
+    id="snazyFrame"
+    src="https://elishaparker.github.io/SnazyCam/"
+    title="SnazyCam"
+    loading="eager"
+  ></iframe>
+
+  <!-- Foreground layer: EyeWrite -->
+  <iframe
+    id="eyeFrame"
+    src="https://elishaparker.github.io/EyeWrite/"
+    title="EyeWrite"
+    loading="eager"
+  ></iframe>
+
+  <!-- Always-on-top driver overlay -->
+  <div id="driverOverlay">
+    <button id="btnSnazy">SnazyCam Controls</button>
+    <button id="btnEye" class="hidden">Back to EyeWrite</button>
+
+    <div id="status">
+      <div><span class="label">Bridge:</span> <span id="bridgeState">booting…</span></div>
+      <div><span class="label">Feed:</span> <span id="feedState">waiting…</span></div>
+      <div><span class="label">X/Y:</span> <span id="xyState">—</span></div>
+    </div>
+  </div>
+
+  <script src="./driver.js"></script>
+</body>
+</html>
