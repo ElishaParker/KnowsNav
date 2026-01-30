@@ -1,32 +1,36 @@
 <!--
   KnowsNav — Integrated EyeWrite + SnazyCam Interface
 
-  This page composes the entire KnowsNav application by combining the
-  unmodified EyeWrite UI with the SnazyCam nose‑tracking module. The
-  EyeWrite code lives under `eyewrite/` and SnazyCam lives under
-  `snazycam/`. Neither codebase is altered; integration happens via
-  scripts loaded here and in driver.js.
+  RULES FOR THIS BUILD:
+  - SnazyCam runs EXACTLY as-is and stays running continuously.
+  - EyeWrite runs EXACTLY as-is and remains the primary UI layer.
+  - driver.js only:
+      (1) manages layering (SnazyCam behind, but can pop on top)
+      (2) reads SnazyCam cursor data and drives EyeWrite mousemove
+  - We do NOT create a new SnazyCam controls button in KnowsNav.
+    We use SnazyCam’s own button from snazycam/controls.js.
 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KnowsNav – EyeWrite with SnazyCam Integration</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KnowsNav – EyeWrite + SnazyCam</title>
 
   <!-- EyeWrite stylesheet (unmodified) -->
-  <link rel="stylesheet" href="eyewrite/style.css">
+  <link rel="stylesheet" href="eyewrite/style.css" />
 
   <style>
-    /* Container for SnazyCam video and canvas; hidden by default via opacity */
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+
+    /* SnazyCam is always running. driver.js controls opacity/z-index/pointer-events. */
     #snazycam-container {
       position: fixed;
       inset: 0;
-      z-index: 50;
-      /* Keep display:block so camera feed runs; hide with opacity */
-      display: block;
-      opacity: 0;
-      pointer-events: none;
+      display: block;          /* keep camera alive */
+      z-index: 0;              /* behind by default */
+      opacity: 0;              /* hidden by default */
+      pointer-events: none;    /* behind by default */
     }
     #snazycam-container video,
     #snazycam-container canvas {
@@ -35,28 +39,11 @@
       object-fit: cover;
     }
 
-    /* Overlay button for toggling SnazyCam */
-    #snazycam-toggle-btn {
-      position: fixed;
-      bottom: 10px;
-      right: 10px;
-      padding: 8px 14px;
-      border: none;
-      border-radius: 8px;
-      background: #00ffff;
-      color: #000;
-      font-weight: bold;
-      cursor: pointer;
-      z-index: 100; /* above everything */
-      box-shadow: 0 0 8px #00ffff88;
-    }
-
-    /* Ensure the EyeWrite cursor ring is visible and above SnazyCam */
+    /* Make sure EyeWrite cursor ring stays visible and above SnazyCam by default */
     #cursorRing {
       position: fixed;
       z-index: 2500;
       pointer-events: none;
-      /* Remove hidden class if present; always visible */
       display: block;
     }
   </style>
@@ -64,7 +51,6 @@
 <body>
 
   <!-- ============= EyeWrite UI (copied verbatim) ============= -->
-  <!-- Only relative paths have been updated. -->
   <div id="toolbar">
     <select id="fontSelect">
       <option value="Arial">Arial</option>
@@ -93,9 +79,9 @@
       <label>Voice:</label>
       <select id="voiceSelect"></select>
       <label>Pitch:</label>
-      <input type="range" id="pitchSlider" min="0.5" max="2" value="1" step="0.1">
+      <input type="range" id="pitchSlider" min="0.5" max="2" value="1" step="0.1" />
       <label>Rate:</label>
-      <input type="range" id="rateSlider" min="0.5" max="2" value="1" step="0.1">
+      <input type="range" id="rateSlider" min="0.5" max="2" value="1" step="0.1" />
       <button id="previewVoice">Preview</button>
     </div>
     <button id="searchBtn">🔍 Search</button>
@@ -110,6 +96,7 @@
     </div>
     <button id="instructionsBtn">❔ Instructions</button>
   </div>
+
   <div id="instructionsModal" class="hidden">
     <div class="modalContent" id="instructionsContent">
       <h2>👁️ EyeWrite — Quick Start Guide</h2>
@@ -137,11 +124,13 @@
       <button id="closeInstructions">Close</button>
     </div>
   </div>
+
   <div id="textContainer">
     <button id="scrollUp" class="scrollBtn">▲ Scroll Up</button>
     <div id="textArea" contenteditable="true"></div>
     <button id="scrollDown" class="scrollBtn">▼ Scroll Down</button>
   </div>
+
   <div id="keyboard">
     <div id="kbHeader">
       <span id="kbMode">🕊 Precision</span>
@@ -153,33 +142,32 @@
     <div class="kbRow" id="row5"><button class="wide">Ctrl</button><button class="extraWide">␣</button><button class="wide">Alt</button><button>←</button><button>↓</button><button>→</button></div>
   </div>
 
-  <!-- Single cursor ring (visible by default) -->
+  <!-- EyeWrite cursor -->
   <div id="cursorRing"></div>
 
-  <!-- ============= SnazyCam Container ============= -->
-  <!-- The webcam and overlay will live here. Visibility is toggled by driver.js. -->
+  <!-- ============= SnazyCam Container (always alive) ============= -->
   <div id="snazycam-container">
     <video id="video" autoplay muted playsinline></video>
     <canvas id="overlay"></canvas>
   </div>
 
-  <!-- Toggle button for SnazyCam Controls; inserted here so it appears above EyeWrite -->
-  <button id="snazycam-toggle-btn">SnazyCam Controls</button>
-
   <!-- ============= Script Imports ============= -->
-  <!-- TensorFlow and BlazeFace dependencies for SnazyCam -->
+
+  <!-- TensorFlow + BlazeFace for SnazyCam -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface"></script>
 
-  <!-- SnazyCam logic (nose tracking) -->
+  <!-- SnazyCam (unmodified) -->
   <script src="snazycam/nose.js"></script>
+  <script src="snazycam/controls.js"></script>
+  <script src="snazycam/hoverClick.js"></script>
 
-  <!-- EyeWrite logic file (unmodified) -->
+  <!-- EyeWrite (unmodified) -->
   <script src="eyewrite/app.js"></script>
 
-  <!-- KnowsNav driver: integrates SnazyCam with EyeWrite -->
+  <!-- KnowsNav driver -->
   <script src="driver.js"></script>
 </body>
 </html>
