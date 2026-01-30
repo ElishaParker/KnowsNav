@@ -47,7 +47,7 @@
     return { x: snazyXY.x * (ex / sx), y: snazyXY.y * (ey / sy) };
   }
 
-  // ---------------- Parent cursor (over popup) ----------------
+  // ---------------- Parent cursor (over popup + HUD) ----------------
   function ensureDriverCursor() {
     let el = document.getElementById("driverCursor");
     if (el) return el;
@@ -430,64 +430,6 @@
     }
   }
 
-  // ---------------- HUD hover controller (PARENT DOC) ----------------
-  function findHUDTarget(el) {
-    if (!el) return null;
-    if (el.closest) {
-      const c = el.closest("#driverControls button, #driverStatus button");
-      if (c) return c;
-    }
-    return null;
-  }
-
-  function clickElementHUD(el) {
-    try { el.click(); } catch {
-      try { dispatchMouse(window, el, "click", 0, 0); } catch {}
-    }
-    pulseDriverCursor();
-  }
-
-  function hoverControllerHUD(x, y) {
-    const now = performance.now();
-
-    const raw = document.elementFromPoint(x, y);
-    const target = findHUDTarget(raw);
-    if (!target) return false; // not hovering a HUD button
-
-    if (lockedEl) {
-      if (distance({ x, y }, lockPos) > UNLOCK_RADIUS_PX) {
-        unlock("driver-hover");
-      } else {
-        const dwell = now - lockedAt;
-        const cooled = (now - lastClickAt) >= CLICK_COOLDOWN_MS;
-
-        if (dwell >= HOVER_TIME_MS && cooled) {
-          if (REQUIRE_MOVE_TO_RECLICK && lastClickedEl === lockedEl) return true;
-          clickElementHUD(lockedEl);
-          lastClickAt = now;
-          lastClickedEl = lockedEl;
-          lockedAt = now;
-          lockPos = { x, y };
-        }
-        return true;
-      }
-    }
-
-    if (!pendingEl || pendingEl !== target) {
-      pendingEl = target;
-      pendingSince = now;
-      return true;
-    }
-
-    if ((now - pendingSince) >= RETARGET_STABLE_MS) {
-      lockOn(target, x, y, "driver-hover");
-      pendingEl = null;
-      pendingSince = 0;
-    }
-
-    return true;
-  }
-
   // ---------------- Popup hover controller (PARENT DOC) ----------------
   function findPopupTarget(el) {
     if (!el) return null;
@@ -549,6 +491,65 @@
     }
   }
 
+  // ✅ NEW: Parent HUD hover controller (SnazyCam Controls / Back to EyeWrite)
+  function findHudTarget(el) {
+    if (!el) return null;
+    if (el.closest) {
+      const c = el.closest("#driverControls button");
+      if (c) return c;
+    }
+    return null;
+  }
+
+  function clickHudTarget(el) {
+    try { el.click(); } catch {
+      try { dispatchMouse(window, el, "click", 0, 0); } catch {}
+    }
+    pulseDriverCursor();
+  }
+
+  function hoverControllerHud(x, y) {
+    const now = performance.now();
+
+    if (lockedEl) {
+      if (distance({ x, y }, lockPos) > UNLOCK_RADIUS_PX) {
+        unlock("driver-hover");
+      } else {
+        const dwell = now - lockedAt;
+        const cooled = (now - lastClickAt) >= CLICK_COOLDOWN_MS;
+
+        if (dwell >= HOVER_TIME_MS && cooled) {
+          if (REQUIRE_MOVE_TO_RECLICK && lastClickedEl === lockedEl) return;
+          clickHudTarget(lockedEl);
+          lastClickAt = now;
+          lastClickedEl = lockedEl;
+          lockedAt = now;
+          lockPos = { x, y };
+        }
+        return;
+      }
+    }
+
+    const raw = document.elementFromPoint(x, y);
+    const target = findHudTarget(raw);
+
+    if (!target) {
+      pendingEl = null; pendingSince = 0;
+      return;
+    }
+
+    if (!pendingEl || pendingEl !== target) {
+      pendingEl = target;
+      pendingSince = now;
+      return;
+    }
+
+    if ((now - pendingSince) >= RETARGET_STABLE_MS) {
+      lockOn(target, x, y, "driver-hover");
+      pendingEl = null; pendingSince = 0;
+    }
+  }
+
   // ---------------- Main loop ----------------
   let lastGood = 0;
 
@@ -582,7 +583,7 @@
       const tx = Math.round(mapped.x);
       const ty = Math.round(mapped.y);
 
-      // always update both cursors (but show/hide depending on popup)
+      // always update both cursors (but show/hide depending on mode)
       const iframeDoc = eyeWin.document;
       const iframeCursor = iframeDoc.getElementById("__knowsnav_cursor");
       if (iframeCursor) {
@@ -598,31 +599,29 @@
       const snazyFront = document.body.classList.contains("snazy-front");
       const popupOpen = !!document.getElementById("voicePopup");
 
-      if (!snazyFront) {
-        // 1) HUD buttons always get priority (SnazyCam Controls / Back to EyeWrite)
-        const hudHit = hoverControllerHUD(mapped.x, mapped.y);
-        if (hudHit) {
-          requestAnimationFrame(tick);
-          return;
-        }
+      // ✅ NEW: detect if cursor is over HUD controls
+      const overHud = !!findHudTarget(document.elementFromPoint(mapped.x, mapped.y));
 
-        // 2) popup in parent -> use parent cursor and hide iframe cursor
-        if (popupOpen) {
-          setDriverCursorVisible(true);
-          setIframeCursorVisible(eyeWin, false);
-          hoverControllerPopup(mapped.x, mapped.y);
-        } else {
-          // 3) normal -> use iframe cursor and hide parent cursor
-          setDriverCursorVisible(false);
-          setIframeCursorVisible(eyeWin, true);
-          hoverControllerEyeWrite(eyeWin, mapped.x, mapped.y);
-        }
+      if (snazyFront) {
+        // Snazy is front: allow HUD hover clicking (Back to EyeWrite button)
+        setDriverCursorVisible(true);
+        setIframeCursorVisible(eyeWin, false);
+        hoverControllerHud(mapped.x, mapped.y);
+      } else if (popupOpen) {
+        // popup in parent -> use parent cursor and hide iframe cursor
+        setDriverCursorVisible(true);
+        setIframeCursorVisible(eyeWin, false);
+        hoverControllerPopup(mapped.x, mapped.y);
+      } else if (overHud) {
+        // ✅ NEW: hovering HUD -> use parent cursor so it appears ABOVE the button and is clickable
+        setDriverCursorVisible(true);
+        setIframeCursorVisible(eyeWin, false);
+        hoverControllerHud(mapped.x, mapped.y);
       } else {
-        closeVoicePopup();
+        // normal EyeWrite -> use iframe cursor + iframe hover
         setDriverCursorVisible(false);
         setIframeCursorVisible(eyeWin, true);
-        unlock("gaze-hover");
-        unlock("driver-hover");
+        hoverControllerEyeWrite(eyeWin, mapped.x, mapped.y);
       }
 
     } catch {
