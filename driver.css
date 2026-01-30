@@ -52,7 +52,7 @@ body.snazy-front #eyeFrame {
 #driverOverlay {
   position: fixed !important;
   right: 24px !important;
-  bottom: 130px !important;   /* lifted above keyboard + scroll arrows */
+  bottom: 10px !important;   /* lifted above keyboard + scroll arrows */
   z-index: 2147483647 !important;
 
   display: flex !important;
