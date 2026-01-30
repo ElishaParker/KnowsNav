@@ -430,6 +430,64 @@
     }
   }
 
+  // ---------------- HUD hover controller (PARENT DOC) ----------------
+  function findHUDTarget(el) {
+    if (!el) return null;
+    if (el.closest) {
+      const c = el.closest("#driverControls button, #driverStatus button");
+      if (c) return c;
+    }
+    return null;
+  }
+
+  function clickElementHUD(el) {
+    try { el.click(); } catch {
+      try { dispatchMouse(window, el, "click", 0, 0); } catch {}
+    }
+    pulseDriverCursor();
+  }
+
+  function hoverControllerHUD(x, y) {
+    const now = performance.now();
+
+    const raw = document.elementFromPoint(x, y);
+    const target = findHUDTarget(raw);
+    if (!target) return false; // not hovering a HUD button
+
+    if (lockedEl) {
+      if (distance({ x, y }, lockPos) > UNLOCK_RADIUS_PX) {
+        unlock("driver-hover");
+      } else {
+        const dwell = now - lockedAt;
+        const cooled = (now - lastClickAt) >= CLICK_COOLDOWN_MS;
+
+        if (dwell >= HOVER_TIME_MS && cooled) {
+          if (REQUIRE_MOVE_TO_RECLICK && lastClickedEl === lockedEl) return true;
+          clickElementHUD(lockedEl);
+          lastClickAt = now;
+          lastClickedEl = lockedEl;
+          lockedAt = now;
+          lockPos = { x, y };
+        }
+        return true;
+      }
+    }
+
+    if (!pendingEl || pendingEl !== target) {
+      pendingEl = target;
+      pendingSince = now;
+      return true;
+    }
+
+    if ((now - pendingSince) >= RETARGET_STABLE_MS) {
+      lockOn(target, x, y, "driver-hover");
+      pendingEl = null;
+      pendingSince = 0;
+    }
+
+    return true;
+  }
+
   // ---------------- Popup hover controller (PARENT DOC) ----------------
   function findPopupTarget(el) {
     if (!el) return null;
@@ -541,13 +599,20 @@
       const popupOpen = !!document.getElementById("voicePopup");
 
       if (!snazyFront) {
+        // 1) HUD buttons always get priority (SnazyCam Controls / Back to EyeWrite)
+        const hudHit = hoverControllerHUD(mapped.x, mapped.y);
+        if (hudHit) {
+          requestAnimationFrame(tick);
+          return;
+        }
+
+        // 2) popup in parent -> use parent cursor and hide iframe cursor
         if (popupOpen) {
-          // popup in parent -> use parent cursor and hide iframe cursor
           setDriverCursorVisible(true);
           setIframeCursorVisible(eyeWin, false);
           hoverControllerPopup(mapped.x, mapped.y);
         } else {
-          // normal -> use iframe cursor and hide parent cursor
+          // 3) normal -> use iframe cursor and hide parent cursor
           setDriverCursorVisible(false);
           setIframeCursorVisible(eyeWin, true);
           hoverControllerEyeWrite(eyeWin, mapped.x, mapped.y);
