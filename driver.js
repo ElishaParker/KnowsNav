@@ -206,56 +206,59 @@
     }
   }
 
-  // ---------------- Voice popup (triggered by real dropdown) ----------------
-  function closeVoicePopup() {
-    const existing = document.getElementById("voicePopup");
-    if (existing) existing.remove();
-  }
+// ---------------- Voice popup (triggered by real dropdown) ----------------
+function closeVoicePopup() {
+  const existing = document.getElementById("voicePopup");
+  if (existing) existing.remove();
+}
 
-  function openVoicePopupFromSelect(selectEl) {
-    closeVoicePopup();
+function openVoicePopupFromSelect(selectEl) {
+  closeVoicePopup();
 
-    const overlay = document.getElementById("driverOverlay");
-    if (!overlay) return;
+  // IMPORTANT: driverStatus is the correct container now
+  const overlay = document.getElementById("driverStatus");
+  if (!overlay) return;
 
-    const popup = document.createElement("div");
-    popup.id = "voicePopup";
+  const popup = document.createElement("div");
+  popup.id = "voicePopup";
 
-    const header = document.createElement("div");
-    header.id = "voicePopupHeader";
+  const header = document.createElement("div");
+  header.id = "voicePopupHeader";
 
-    const title = document.createElement("div");
-    title.className = "title";
-    title.textContent = "Select Voice";
+  const title = document.createElement("div");
+  title.className = "title";
+  title.textContent = "Select Voice";
 
-    const closeBtn = document.createElement("button");
-    closeBtn.id = "voicePopupClose";
-    closeBtn.textContent = "Close";
-    closeBtn.addEventListener("click", closeVoicePopup);
+  const closeBtn = document.createElement("button");
+  closeBtn.id = "voicePopupClose";
+  closeBtn.textContent = "Close";
+  closeBtn.addEventListener("click", closeVoicePopup);
 
-    header.appendChild(title);
-    header.appendChild(closeBtn);
-    popup.appendChild(header);
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  popup.appendChild(header);
 
-    const opts = Array.from(selectEl.options || []);
-    opts.forEach((opt) => {
-      const item = document.createElement("div");
-      item.className = "voiceItem";
-      item.textContent = opt.textContent;
+  const opts = Array.from(selectEl.options || []);
+  opts.forEach((opt) => {
+    const item = document.createElement("div");
+    item.className = "voiceItem";
+    item.textContent = opt.textContent;
 
-      item.addEventListener("click", () => {
-        try {
-          selectEl.value = opt.value;
-          selectEl.dispatchEvent(new Event("change", { bubbles: true }));
-        } catch {}
-        closeVoicePopup();
-      });
-
-      popup.appendChild(item);
+    item.addEventListener("click", () => {
+      try {
+        selectEl.value = opt.value;
+        selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+      } catch {}
+      closeVoicePopup();
     });
 
-    overlay.insertBefore(popup, overlay.firstChild);
-  }
+    popup.appendChild(item);
+  });
+
+  // Insert popup ABOVE the status panel
+  overlay.insertBefore(popup, overlay.firstChild);
+}
+
 
   // ---------------- Auto disable EyeWrite hover (prevents double letters) ----------------
   let hoverToggledOff = false;
