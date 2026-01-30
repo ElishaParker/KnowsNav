@@ -10,13 +10,10 @@
   const xyState     = document.getElementById("xyState");
 
   // ===================== CONFIG =====================
-  // Match SnazyCam default dwell time:
-  const HOVER_TIME_MS = 1500;
-  const CLICK_COOLDOWN_MS = 800;
-
-  // Optional: require the cursor to stay within a small radius to count as "hover stable"
-  const STABILITY_RADIUS_PX = 10;
-
+  const HOVER_TIME_MS = 1500;        // match SnazyCam
+  const CLICK_COOLDOWN_MS = 900;     // prevents rapid repeat clicks
+  const RETARGET_RADIUS_PX = 20;     // move more than this to unlock/re-target
+  const MOVE_EVENT_HZ = 30;          // reduce event spam
   // ==================================================
 
   // ---------------- Layer toggle ----------------
@@ -38,7 +35,6 @@
     const doc = eyeWin.document;
     if (!doc || !doc.body) return false;
 
-    // Cursor overlay (driver-owned)
     if (!doc.getElementById("__knowsnav_cursor")) {
       const cursor = doc.createElement("div");
       cursor.id = "__knowsnav_cursor";
@@ -77,7 +73,6 @@
       doc.body.appendChild(readout);
     }
 
-    // Highlight style
     if (!doc.getElementById("__knowsnav_hover_style")) {
       const style = doc.createElement("style");
       style.id = "__knowsnav_hover_style";
@@ -102,48 +97,8 @@
     return { x: snazyXY.x * (ex / sx), y: snazyXY.y * (ey / sy) };
   }
 
-  // ---------------- Hover/click helpers ----------------
-  function isClickable(el) {
-    if (!el) return false;
-    if (el.disabled) return false;
-
-    const tag = (el.tagName || "").toLowerCase();
-    if (tag === "button" || tag === "a" || tag === "input" || tag === "select" || tag === "textarea") return true;
-
-    // data / class conventions
-    if (el.dataset && (el.dataset.hoverClick != null)) return true;
-    if (el.classList && el.classList.contains("clickable")) return true;
-
-    // inline handler
-    if (el.getAttribute && el.getAttribute("onclick")) return true;
-
-    return false;
-  }
-
-  function findClickable(el) {
-    let cur = el;
-    for (let i = 0; i < 8 && cur; i++) {
-      if (isClickable(cur)) return cur;
-
-      // try closest common clickable selectors
-      if (cur.closest) {
-        const c = cur.closest("button,a,input,select,textarea,[data-hover-click],.clickable");
-        if (c) return c;
-      }
-      cur = cur.parentElement;
-    }
-    return null;
-  }
-
-  function setHighlight(el, on) {
-    if (!el) return;
-    try {
-      if (on) el.classList.add("gaze-hover");
-      else el.classList.remove("gaze-hover");
-    } catch {}
-  }
-
-  function dispatchMouse(eyeWin, type, target, x, y) {
+  // ---------------- Event helpers ----------------
+  function dispatchMouse(eyeWin, target, type, x, y) {
     const e = new MouseEvent(type, {
       bubbles: true,
       cancelable: true,
@@ -154,8 +109,7 @@
     target.dispatchEvent(e);
   }
 
-  function dispatchPointer(eyeWin, type, target, x, y) {
-    // PointerEvent isn't supported in some older contexts; fall back gracefully
+  function dispatchPointer(eyeWin, target, type, x, y) {
     try {
       const e = new PointerEvent(type, {
         bubbles: true,
@@ -169,106 +123,153 @@
       });
       target.dispatchEvent(e);
     } catch {
-      // no-op
+      // ignore
     }
   }
 
-  function performDwellClick(eyeWin, el, x, y) {
-    // Realistic sequence: pointerdown/mousedown -> pointerup/mouseup -> click
-    try { el.focus?.(); } catch {}
-
-    // Some UIs rely on hover state first
-    dispatchPointer(eyeWin, "pointerover", el, x, y);
-    dispatchMouse(eyeWin, "mouseover", el, x, y);
-    dispatchMouse(eyeWin, "mouseenter", el, x, y);
-
-    dispatchPointer(eyeWin, "pointerdown", el, x, y);
-    dispatchMouse(eyeWin, "mousedown", el, x, y);
-
-    dispatchPointer(eyeWin, "pointerup", el, x, y);
-    dispatchMouse(eyeWin, "mouseup", el, x, y);
-
-    dispatchMouse(eyeWin, "click", el, x, y);
+  function focusElement(el) {
+    try { el.focus?.({ preventScroll: true }); } catch {}
   }
 
-  // ---------------- Hover state machine ----------------
-  let hoverEl = null;
-  let hoverStart = 0;
-  let lastClickTime = 0;
+  // ---------------- Clickable detection ----------------
+  function isClickable(el) {
+    if (!el) return false;
+    if (el.disabled) return false;
 
-  let lastPos = { x: 0, y: 0 };
-  let stableSince = 0;
+    const tag = (el.tagName || "").toLowerCase();
+    if (tag === "button" || tag === "a") return true;
 
-  function updateStability(now, x, y) {
-    const dx = x - lastPos.x;
-    const dy = y - lastPos.y;
-    const dist = Math.sqrt(dx*dx + dy*dy);
+    // Inputs/selects/textareas should be treated as targets too
+    if (tag === "input" || tag === "textarea" || tag === "select") return true;
 
-    lastPos = { x, y };
+    // contenteditable targets
+    if (el.isContentEditable) return true;
 
-    if (dist <= STABILITY_RADIUS_PX) {
-      if (!stableSince) stableSince = now;
-    } else {
-      stableSince = 0;
+    // role=button patterns
+    const role = el.getAttribute?.("role");
+    if (role === "button" || role === "menuitem") return true;
+
+    if (el.getAttribute?.("onclick")) return true;
+    if (el.classList?.contains("clickable")) return true;
+    if (el.dataset && (el.dataset.hoverClick != null)) return true;
+
+    return false;
+  }
+
+  function findTarget(el) {
+    if (!el) return null;
+    // try closest first
+    if (el.closest) {
+      const c = el.closest("button,a,input,textarea,select,[role='button'],[role='menuitem'],[contenteditable='true'],.clickable,[data-hover-click]");
+      if (c) return c;
     }
+    // fallback climb
+    let cur = el;
+    for (let i = 0; i < 10 && cur; i++) {
+      if (isClickable(cur)) return cur;
+      cur = cur.parentElement;
+    }
+    return null;
   }
 
-  function hoverTick(eyeWin, x, y) {
+  // ---------------- Hover target lock state machine ----------------
+  let lockedEl = null;
+  let lockedAt = 0;
+  let lastClickAt = 0;
+  let lockPos = { x: 0, y: 0 };
+
+  function setHighlight(el, on) {
+    if (!el) return;
+    try {
+      if (on) el.classList.add("gaze-hover");
+      else el.classList.remove("gaze-hover");
+    } catch {}
+  }
+
+  function lockOn(el, x, y) {
+    if (lockedEl && lockedEl !== el) setHighlight(lockedEl, false);
+    lockedEl = el;
+    lockedAt = performance.now();
+    lockPos = { x, y };
+    if (lockedEl) setHighlight(lockedEl, true);
+  }
+
+  function unlock() {
+    if (lockedEl) setHighlight(lockedEl, false);
+    lockedEl = null;
+    lockedAt = 0;
+  }
+
+  function dist(a, b) {
+    const dx = a.x - b.x, dy = a.y - b.y;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+
+  function performLockedClick(eyeWin, el, x, y) {
+    // Focus first so inputs/textareas can accept typing
+    focusElement(el);
+
+    // Enter/over helps some hover systems
+    dispatchPointer(eyeWin, el, "pointerover", x, y);
+    dispatchMouse(eyeWin, el, "mouseover", x, y);
+    dispatchMouse(eyeWin, el, "mouseenter", x, y);
+
+    // Down/up/click sequence
+    dispatchPointer(eyeWin, el, "pointerdown", x, y);
+    dispatchMouse(eyeWin, el, "mousedown", x, y);
+
+    dispatchPointer(eyeWin, el, "pointerup", x, y);
+    dispatchMouse(eyeWin, el, "mouseup", x, y);
+
+    dispatchMouse(eyeWin, el, "click", x, y);
+  }
+
+  // Reduce event spam: only send move events at MOVE_EVENT_HZ
+  let lastMoveSent = 0;
+
+  function hoverController(eyeWin, x, y) {
     const now = performance.now();
-    updateStability(now, x, y);
-
     const doc = eyeWin.document;
     if (!doc) return;
 
-    // Feed realistic movement into EyeWrite regardless (helps its own hover logic)
-    dispatchPointer(eyeWin, "pointermove", doc, x, y);
-    dispatchMouse(eyeWin, "mousemove", doc, x, y);
+    // send basic movement into EyeWrite (helps its own logic)
+    const interval = 1000 / MOVE_EVENT_HZ;
+    if (now - lastMoveSent >= interval) {
+      lastMoveSent = now;
+      dispatchPointer(eyeWin, doc, "pointermove", x, y);
+      dispatchMouse(eyeWin, doc, "mousemove", x, y);
+    }
 
-    // Find element under point
+    // If we have a locked target, keep it until user moves far enough
+    if (lockedEl) {
+      if (dist({ x, y }, lockPos) > RETARGET_RADIUS_PX) {
+        unlock();
+        // fall through to reacquire
+      } else {
+        const dwell = now - lockedAt;
+        const cooled = (now - lastClickAt) >= CLICK_COOLDOWN_MS;
+        if (dwell >= HOVER_TIME_MS && cooled) {
+          performLockedClick(eyeWin, lockedEl, x, y);
+          lastClickAt = now;
+          // keep it locked but restart dwell timer
+          lockedAt = now;
+          lockPos = { x, y };
+        }
+        return;
+      }
+    }
+
+    // Acquire new target under point
     const raw = doc.elementFromPoint(x, y);
-    const target = findClickable(raw);
+    const target = findTarget(raw);
 
     if (!target) {
-      if (hoverEl) setHighlight(hoverEl, false);
-      hoverEl = null;
-      hoverStart = 0;
+      unlock();
       return;
     }
 
-    if (target !== hoverEl) {
-      // transition
-      if (hoverEl) {
-        setHighlight(hoverEl, false);
-        // send leave events on old element
-        dispatchMouse(eyeWin, "mouseleave", hoverEl, x, y);
-        dispatchPointer(eyeWin, "pointerout", hoverEl, x, y);
-      }
-
-      hoverEl = target;
-      hoverStart = now;
-      setHighlight(hoverEl, true);
-
-      // send enter events on new element (this is key for EyeWrite-style hover systems)
-      dispatchPointer(eyeWin, "pointerover", hoverEl, x, y);
-      dispatchMouse(eyeWin, "mouseover", hoverEl, x, y);
-      dispatchMouse(eyeWin, "mouseenter", hoverEl, x, y);
-
-      return;
-    }
-
-    // Same element: dwell logic
-    const elapsed = now - hoverStart;
-    const cooledDown = (now - lastClickTime) >= CLICK_COOLDOWN_MS;
-    const stableEnough = stableSince && (now - stableSince) >= 120; // tiny stability gate
-
-    if (elapsed >= HOVER_TIME_MS && cooledDown && stableEnough) {
-      performDwellClick(eyeWin, hoverEl, x, y);
-      lastClickTime = now;
-
-      // reset hover timer so it doesn't rapid-fire
-      hoverStart = now;
-      stableSince = 0;
-    }
+    // lock immediately when highlighted
+    lockOn(target, x, y);
   }
 
   // ---------------- Main bridge loop ----------------
@@ -299,7 +300,6 @@
       const tx = Math.round(mapped.x);
       const ty = Math.round(mapped.y);
 
-      // Update EyeWrite overlay cursor + readout
       const doc = eyeWin.document;
       const cursor = doc.getElementById("__knowsnav_cursor");
       const readout = doc.getElementById("__knowsnav_xy");
@@ -311,10 +311,13 @@
       feedState.textContent = "live";
       lastGood = performance.now();
 
-      // Only interact when EyeWrite is the active layer (recommended)
+      // Only interact when EyeWrite is active layer
       const snazyFront = document.body.classList.contains("snazy-front");
       if (!snazyFront) {
-        hoverTick(eyeWin, mapped.x, mapped.y);
+        hoverController(eyeWin, mapped.x, mapped.y);
+      } else {
+        // If SnazyCam is front, don’t leave a locked target stuck
+        unlock();
       }
 
     } catch {
@@ -327,7 +330,7 @@
   setInterval(() => {
     const age = performance.now() - lastGood;
     if (lastGood === 0) return;
-    if (age > 500) feedState.textContent = `stale (${Math.round(age)}ms)`;
+    if (age > 700) feedState.textContent = `stale (${Math.round(age)}ms)`;
   }, 250);
 
   tick();
