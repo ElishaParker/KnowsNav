@@ -11,15 +11,17 @@
 
   // ===================== CONFIG =====================
   const HOVER_TIME_MS = 1500;              // dwell time
-  const CLICK_COOLDOWN_MS = 600;           // general cooldown
-  const REQUIRE_MOVE_TO_RECLICK = true;    // prevents double letters
-  const UNLOCK_RADIUS_PX = 18;             // must move this far to unlock/reclick same target
-  const RETARGET_STABLE_MS = 140;          // reduce flicker
-  const MOVE_EVENT_HZ = 30;                // less spam
+  const CLICK_COOLDOWN_MS = 650;           // global cooldown
+  const REQUIRE_MOVE_TO_RECLICK = true;    // must move off element to click again
+  const UNLOCK_RADIUS_PX = 22;             // move distance to unlock
+  const RETARGET_STABLE_MS = 140;          // reduce edge flicker
+  const MOVE_EVENT_HZ = 30;
 
-  // Cursor offset tuning if needed
   const X_OFFSET = 0;
   const Y_OFFSET = 0;
+
+  // Critical: prevents double letters by disabling EyeWrite's own hover click
+  const AUTO_DISABLE_EYEWRITE_HOVER = true;
   // ==================================================
 
   // ---------------- Layer toggle ----------------
@@ -45,7 +47,7 @@
     return { x: snazyXY.x * (ex / sx), y: snazyXY.y * (ey / sy) };
   }
 
-  // ---------------- EyeWrite overlay injection ----------------
+  // ---------------- Overlay injection ----------------
   function ensureEyewriteInjected(eyeWin) {
     const doc = eyeWin.document;
     if (!doc || !doc.body) return false;
@@ -84,7 +86,7 @@
     return true;
   }
 
-  // ---------------- Event helpers ----------------
+  // ---------------- Events ----------------
   function dispatchMouse(eyeWin, target, type, x, y) {
     const e = new MouseEvent(type, {
       bubbles: true,
@@ -125,7 +127,7 @@
     } catch {}
   }
 
-  // ---------------- Clickable detection ----------------
+  // ---------------- Target detection ----------------
   function isInputLike(el) {
     if (!el) return false;
     const tag = (el.tagName || "").toLowerCase();
@@ -133,37 +135,29 @@
   }
 
   function isClickable(el) {
-    if (!el) return false;
-    if (el.disabled) return false;
-
+    if (!el || el.disabled) return false;
     const tag = (el.tagName || "").toLowerCase();
     if (tag === "button" || tag === "a") return true;
-
     if (tag === "input" || tag === "textarea" || tag === "select") return true;
     if (el.isContentEditable) return true;
-
     const role = el.getAttribute?.("role");
     if (role === "button" || role === "menuitem") return true;
-
     if (el.getAttribute?.("onclick")) return true;
     if (el.classList?.contains("clickable")) return true;
     if (el.dataset && (el.dataset.hoverClick != null)) return true;
-
     return false;
   }
 
   function findTarget(el) {
     if (!el) return null;
-
-    // Prefer input-like elements when present
     if (el.closest) {
+      // prefer inputs/selects/textareas
       const inputPref = el.closest("textarea,input,[contenteditable='true'],select");
       if (inputPref) return inputPref;
 
       const c = el.closest("button,a,[role='button'],[role='menuitem'],.clickable,[data-hover-click]");
       if (c) return c;
     }
-
     let cur = el;
     for (let i = 0; i < 10 && cur; i++) {
       if (isClickable(cur)) return cur;
@@ -172,202 +166,109 @@
     return null;
   }
 
-  // ---------------- BUG #1: Caret placement for text ----------------
-  // We attempt:
-  // 1) For contenteditable: caretRangeFromPoint / caretPositionFromPoint (works well)
-  // 2) For textarea/input: use a measurement mirror to estimate caret index
+  // ---------------- Bug #1 caret placement (contenteditable only) ----------------
+  // (EyeWrite’s text area behaves like contenteditable in most builds)
   function setCaretAtPoint(eyeWin, el, x, y) {
     const doc = eyeWin.document;
 
-    // contenteditable: use native caret APIs
-    if (el.isContentEditable) {
-      const sel = eyeWin.getSelection?.();
-      if (!sel) return;
+    if (!el.isContentEditable) return;
 
-      let range = null;
+    const sel = eyeWin.getSelection?.();
+    if (!sel) return;
 
-      if (doc.caretRangeFromPoint) {
-        range = doc.caretRangeFromPoint(x, y);
-      } else if (doc.caretPositionFromPoint) {
-        const pos = doc.caretPositionFromPoint(x, y);
-        if (pos) {
-          range = doc.createRange();
-          range.setStart(pos.offsetNode, pos.offset);
-          range.collapse(true);
-        }
-      }
+    let range = null;
 
-      if (range) {
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
-      return;
-    }
-
-    // textarea/input: compute caret index with mirror
-    const tag = (el.tagName || "").toLowerCase();
-    if (tag !== "textarea" && tag !== "input") return;
-
-    // Only text-like inputs
-    if (tag === "input") {
-      const type = (el.getAttribute("type") || "text").toLowerCase();
-      const ok = ["text","search","email","url","tel","password"].includes(type);
-      if (!ok) return;
-    }
-
-    const rect = el.getBoundingClientRect();
-    const rx = x - rect.left;
-    const ry = y - rect.top;
-
-    // Build mirror
-    const style = eyeWin.getComputedStyle(el);
-    const mirror = doc.createElement("div");
-    mirror.style.position = "fixed";
-    mirror.style.left = "-99999px";
-    mirror.style.top = "-99999px";
-    mirror.style.whiteSpace = "pre-wrap";
-    mirror.style.wordWrap = "break-word";
-    mirror.style.visibility = "hidden";
-
-    // copy font + box
-    mirror.style.fontFamily = style.fontFamily;
-    mirror.style.fontSize = style.fontSize;
-    mirror.style.fontWeight = style.fontWeight;
-    mirror.style.letterSpacing = style.letterSpacing;
-    mirror.style.lineHeight = style.lineHeight;
-    mirror.style.padding = style.padding;
-    mirror.style.border = style.border;
-    mirror.style.boxSizing = style.boxSizing;
-    mirror.style.width = `${rect.width}px`;
-
-    // Normalize text: textarea uses \n; input is single line
-    const value = el.value || "";
-    const text = (tag === "textarea") ? value : value.replace(/\n/g, " ");
-
-    // Binary search caret position
-    const marker = doc.createElement("span");
-    marker.textContent = "\u200b"; // zero-width marker
-
-    doc.body.appendChild(mirror);
-
-    function caretPosAt(idx) {
-      mirror.textContent = text.slice(0, idx);
-      mirror.appendChild(marker);
-      mirror.appendChild(doc.createTextNode(text.slice(idx)));
-      const mrect = marker.getBoundingClientRect();
-      const top = mrect.top - mirror.getBoundingClientRect().top;
-      const left = mrect.left - mirror.getBoundingClientRect().left;
-      return { top, left };
-    }
-
-    let lo = 0, hi = text.length;
-    let best = 0;
-
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      const p = caretPosAt(mid);
-
-      // compare by line first, then column
-      if (p.top < ry || (Math.abs(p.top - ry) < 8 && p.left < rx)) {
-        best = mid;
-        lo = mid + 1;
-      } else {
-        hi = mid - 1;
+    if (doc.caretRangeFromPoint) {
+      range = doc.caretRangeFromPoint(x, y);
+    } else if (doc.caretPositionFromPoint) {
+      const pos = doc.caretPositionFromPoint(x, y);
+      if (pos) {
+        range = doc.createRange();
+        range.setStart(pos.offsetNode, pos.offset);
+        range.collapse(true);
       }
     }
 
-    doc.body.removeChild(mirror);
-
-    try {
-      el.setSelectionRange(best, best);
-    } catch {}
+    if (range) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
   }
 
-  // ---------------- BUG #4: Voice dropdown fallback ----------------
-  // Chrome often blocks synthetic "open" for native <select>.
-  // So we create a driver-owned voice picker that reads EyeWrite's select options.
-  let voicePanel = null;
-  let voiceBtn = null;
+  // ---------------- Voice popup (triggered by the real dropdown) ----------------
+  function closeVoicePopup() {
+    const existing = document.getElementById("voicePopup");
+    if (existing) existing.remove();
+  }
 
-  function ensureVoicePickerUI() {
+  function openVoicePopupFromSelect(selectEl) {
+    closeVoicePopup();
+
     const overlay = document.getElementById("driverOverlay");
     if (!overlay) return;
 
-    if (!voiceBtn) {
-      voiceBtn = document.createElement("button");
-      voiceBtn.textContent = "Voices";
-      voiceBtn.style.marginTop = "6px";
-      overlay.appendChild(voiceBtn);
+    const popup = document.createElement("div");
+    popup.id = "voicePopup";
 
-      voiceBtn.addEventListener("click", () => {
-        if (voicePanel) {
-          voicePanel.remove();
-          voicePanel = null;
-          return;
-        }
-        voicePanel = document.createElement("div");
-        Object.assign(voicePanel.style, {
-          width: "320px",
-          maxHeight: "320px",
-          overflow: "auto",
-          borderRadius: "12px",
-          padding: "10px",
-          background: "rgba(0,0,0,0.85)",
-          border: "1px solid rgba(0,255,255,0.6)",
-          boxShadow: "0 0 18px rgba(0,255,255,0.18)",
-          color: "#00ffff",
-          marginTop: "8px"
-        });
-        voicePanel.innerHTML = `<div style="opacity:.75;margin-bottom:8px">Select voice (driver picker)</div>`;
-        overlay.appendChild(voicePanel);
+    const header = document.createElement("div");
+    header.id = "voicePopupHeader";
 
-        populateVoices();
-      });
-    }
-  }
+    const title = document.createElement("div");
+    title.className = "title";
+    title.textContent = "Select Voice";
 
-  function populateVoices() {
-    if (!voicePanel) return;
-    const eyeWin = eyeFrame?.contentWindow;
-    const doc = eyeWin?.document;
-    if (!doc) return;
+    const closeBtn = document.createElement("button");
+    closeBtn.id = "voicePopupClose";
+    closeBtn.textContent = "Close";
+    closeBtn.addEventListener("click", closeVoicePopup);
 
-    const sel = doc.querySelector("select");
-    if (!sel) {
-      voicePanel.innerHTML += `<div style="opacity:.75">No &lt;select&gt; found in EyeWrite.</div>`;
-      return;
-    }
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    popup.appendChild(header);
 
-    // Clear items except header
-    voicePanel.innerHTML = `<div style="opacity:.75;margin-bottom:8px">Select voice (driver picker)</div>`;
-
-    const opts = Array.from(sel.options || []);
+    const opts = Array.from(selectEl.options || []);
     opts.forEach((opt) => {
       const item = document.createElement("div");
+      item.className = "voiceItem";
       item.textContent = opt.textContent;
-      Object.assign(item.style, {
-        padding: "8px 10px",
-        borderRadius: "10px",
-        cursor: "pointer",
-        border: "1px solid rgba(0,255,255,0.18)",
-        marginBottom: "6px"
-      });
 
       item.addEventListener("click", () => {
         try {
-          sel.value = opt.value;
-          sel.dispatchEvent(new Event("change", { bubbles: true }));
+          selectEl.value = opt.value;
+          selectEl.dispatchEvent(new Event("change", { bubbles: true }));
         } catch {}
-        // close panel after selection
-        voicePanel?.remove();
-        voicePanel = null;
+        closeVoicePopup();
       });
 
-      voicePanel.appendChild(item);
+      popup.appendChild(item);
     });
+
+    // Insert popup ABOVE status (at top of overlay stack)
+    overlay.insertBefore(popup, overlay.firstChild);
   }
 
-  // ---------------- Locked hover state machine ----------------
+  // ---------------- Auto disable EyeWrite hover (prevents double letters) ----------------
+  let hoverToggledOff = false;
+
+  function disableEyewriteHoverIfOn(eyeWin) {
+    if (!AUTO_DISABLE_EYEWRITE_HOVER || hoverToggledOff) return;
+
+    const doc = eyeWin.document;
+    if (!doc) return;
+
+    // Find a button containing "Hover ON"
+    const buttons = Array.from(doc.querySelectorAll("button,div"));
+    const hoverEl = buttons.find(el => (el.textContent || "").trim() === "Hover ON");
+
+    if (hoverEl) {
+      try {
+        hoverEl.click();
+        hoverToggledOff = true;
+      } catch {}
+    }
+  }
+
+  // ---------------- Locked hover engine ----------------
   let lockedEl = null;
   let lockedAt = 0;
   let lockPos = { x: 0, y: 0 };
@@ -388,7 +289,6 @@
 
   function unlock() {
     if (lockedEl) setHighlight(lockedEl, false);
-    // allow re-clicking the same element after moving off it
     if (lockedEl && lockedEl === lastClickedEl) lastClickedEl = null;
     lockedEl = null;
     lockedAt = 0;
@@ -402,48 +302,41 @@
   }
 
   // Click protocol:
-  // - For keys/buttons: fire ONE click event (prevents double letters)
-  // - For input/textarea/select: focus + mousedown/up + click + caret set
+  // - keys/buttons: ONE click only
+  // - contenteditable: focus + caret placement + ONE click (for activation)
+  // - select: open our popup and DO NOT rely on native open
   function clickElement(eyeWin, el, x, y) {
-    const doc = eyeWin.document;
+    const tag = (el.tagName || "").toLowerCase();
 
-    // hover enter
-    dispatchPointer(eyeWin, el, "pointerover", x, y);
-    dispatchMouse(eyeWin, el, "mouseover", x, y);
-    dispatchMouse(eyeWin, el, "mouseenter", x, y);
-
-    if (isInputLike(el)) {
+    // Select dropdown -> popup list
+    if (tag === "select") {
       focusElement(el);
-
-      // Down/up then click tends to be best for focus
-      dispatchPointer(eyeWin, el, "pointerdown", x, y);
-      dispatchMouse(eyeWin, el, "mousedown", x, y);
-
-      dispatchPointer(eyeWin, el, "pointerup", x, y);
-      dispatchMouse(eyeWin, el, "mouseup", x, y);
-
-      dispatchMouse(eyeWin, el, "click", x, y);
-
-      // caret placement for text editing (BUG #1)
-      setCaretAtPoint(eyeWin, el, x, y);
-
-      // dropdown open (BUG #4): native may not open -> use driver picker
-      const tag = (el.tagName || "").toLowerCase();
-      if (tag === "select") {
-        // open driver voice picker if present
-        if (voiceBtn) voiceBtn.click();
-      }
+      openVoicePopupFromSelect(el);
       return;
     }
 
-    // BUTTONS/KEYS: SINGLE CLICK ONLY (BUG #2)
-    dispatchMouse(eyeWin, el, "click", x, y);
+    // contenteditable text area -> set caret at point
+    if (el.isContentEditable) {
+      focusElement(el);
+      // single click to keep EyeWrite logic consistent
+      dispatchMouse(eyeWin, el, "click", x, y);
+      setCaretAtPoint(eyeWin, el, x, y);
+      return;
+    }
 
-    // Some UIs need focus on clickables too
+    // inputs/textarea (if present)
+    if (tag === "input" || tag === "textarea") {
+      focusElement(el);
+      dispatchMouse(eyeWin, el, "click", x, y);
+      return;
+    }
+
+    // keys/buttons -> single click only
+    dispatchMouse(eyeWin, el, "click", x, y);
     focusElement(el);
   }
 
-  // Reduce move event spam
+  // Throttle move events
   let lastMoveSent = 0;
 
   function hoverController(eyeWin, x, y) {
@@ -451,7 +344,7 @@
     const doc = eyeWin.document;
     if (!doc) return;
 
-    // move events to help hover systems, throttled
+    // movement events
     const interval = 1000 / MOVE_EVENT_HZ;
     if (now - lastMoveSent >= interval) {
       lastMoveSent = now;
@@ -459,9 +352,8 @@
       dispatchMouse(eyeWin, doc, "mousemove", x, y);
     }
 
-    // if locked, only click after dwell, and prevent double click unless moved away
+    // locked element flow
     if (lockedEl) {
-      // unlock if moved far enough
       if (distance({ x, y }, lockPos) > UNLOCK_RADIUS_PX) {
         unlock();
       } else {
@@ -470,13 +362,13 @@
 
         if (dwell >= HOVER_TIME_MS && cooled) {
           if (REQUIRE_MOVE_TO_RECLICK && lastClickedEl === lockedEl) {
-            return; // prevents double letters
+            return;
           }
           clickElement(eyeWin, lockedEl, x, y);
           lastClickAt = now;
           lastClickedEl = lockedEl;
 
-          // restart dwell timer
+          // restart dwell timer, keep lock until moved off
           lockedAt = now;
           lockPos = { x, y };
         }
@@ -506,7 +398,7 @@
     }
   }
 
-  // ---------------- Main bridge loop ----------------
+  // ---------------- Main loop ----------------
   let lastGood = 0;
 
   function tick() {
@@ -520,10 +412,10 @@
         return;
       }
 
-      ensureVoicePickerUI();
-
       const injected = ensureEyewriteInjected(eyeWin);
       bridgeState.textContent = injected ? "ready" : "injecting…";
+
+      disableEyewriteHoverIfOn(eyeWin);
 
       const sc = snazyWin.smoothedCursor;
       if (!sc || typeof sc.x !== "number" || typeof sc.y !== "number") {
@@ -539,7 +431,7 @@
       const tx = Math.round(mapped.x);
       const ty = Math.round(mapped.y);
 
-      // update cursor ring inside EyeWrite
+      // update cursor ring
       const doc = eyeWin.document;
       const cursor = doc.getElementById("__knowsnav_cursor");
       if (cursor) {
@@ -556,6 +448,7 @@
       if (!snazyFront) {
         hoverController(eyeWin, mapped.x, mapped.y);
       } else {
+        closeVoicePopup();
         unlock();
       }
 
