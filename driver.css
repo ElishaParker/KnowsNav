@@ -38,8 +38,8 @@ body.snazy-front #eyeFrame {
 }
 
 /* ================================
-   PARENT CURSOR (OVER POPUP)
-   Fixes: cursor under voice menu
+   PARENT CURSOR (OVER POPUP + HUD)
+   Fixes: cursor under voice menu AND under HUD buttons
 ================================ */
 @keyframes knowsnavPulse {
   0%   { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
@@ -59,7 +59,7 @@ body.snazy-front #eyeFrame {
   transform: translate(-50%, -50%);
   pointer-events: none !important;
 
-  /* MUST be above popup */
+  /* MUST be above popup + HUD */
   z-index: 2147483647 !important;
   display: none;
 }
@@ -75,10 +75,7 @@ body.snazy-front #eyeFrame {
   position: fixed !important;
   left: 12px !important;
   bottom: 12px !important;
-
-  /* EDIT: raise HUD above everything else */
-  z-index: 2147483647 !important;
-
+  z-index: 2147483646 !important;
   pointer-events: auto !important;
 }
 
@@ -94,6 +91,12 @@ body.snazy-front #eyeFrame {
 }
 #driverControls button.hidden { display: none !important; }
 
+/* ✅ NEW: highlight class for parent HUD hover */
+#driverControls button.driver-hover {
+  outline: 2px solid rgba(0,255,255,0.95) !important;
+  box-shadow: 0 0 16px rgba(0,255,255,0.35) !important;
+}
+
 /* ================================
    LEFT HUD: Status panel (bottom-left)
 ================================ */
@@ -103,8 +106,7 @@ body.snazy-front #eyeFrame {
   right: auto !important;
   bottom: 74px !important;
 
-  /* EDIT: raise HUD above everything else */
-  z-index: 2147483647 !important;
+  z-index: 2147483646 !important;
 
   display: flex !important;
   flex-direction: column !important;
@@ -141,10 +143,7 @@ body.snazy-front #eyeFrame {
   box-shadow: 0 0 18px rgba(0,255,255,0.18) !important;
 
   position: relative !important;
-
-  /* EDIT: keep popup below driver cursor, but above HUD stack */
-  z-index: 2147483646 !important;
-
+  z-index: 2147483646 !important; /* under #driverCursor */
   pointer-events: auto !important;
 }
 
@@ -186,13 +185,4 @@ body.snazy-front #eyeFrame {
 .voiceItem.driver-hover {
   border-color: rgba(0,255,255,0.75) !important;
   box-shadow: 0 0 10px rgba(0,255,255,0.30) !important;
-}
-
-/* ================================
-   EDIT: Driver HUD hover highlight
-   (used by hoverControllerHUD)
-================================ */
-.driver-hover{
-  outline: 2px solid rgba(0,255,255,0.95) !important;
-  box-shadow: 0 0 10px rgba(0,255,255,0.35) !important;
 }
