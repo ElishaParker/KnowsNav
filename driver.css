@@ -28,31 +28,23 @@ iframe {
   height: 100vh !important;
 }
 
-#snazyFrame { 
-  z-index: 10 !important; 
-}
+#snazyFrame { z-index: 10 !important; }
+#eyeFrame   { z-index: 20 !important; }
 
-#eyeFrame { 
-  z-index: 20 !important; 
-}
-
-/* When SnazyCam is brought forward */
-body.snazy-front #snazyFrame {
-  z-index: 30 !important;
-}
-
+body.snazy-front #snazyFrame { z-index: 30 !important; }
 body.snazy-front #eyeFrame {
   z-index: 20 !important;
   pointer-events: none !important;
 }
 
 /* ================================
-   DRIVER OVERLAY (HUD + BUTTON)
+   DRIVER OVERLAY (BOTTOM-RIGHT)
+   Status stacked ABOVE button
 ================================ */
 #driverOverlay {
   position: fixed !important;
-  right: 24px !important;
-  bottom: 10px !important;   /* lifted above keyboard + scroll arrows */
+  right: 12px !important;
+  bottom: 12px !important;
   z-index: 2147483647 !important;
 
   display: flex !important;
@@ -63,49 +55,69 @@ body.snazy-front #eyeFrame {
   pointer-events: auto !important;
 }
 
-/* ================================
-   STATUS READOUT (X/Y, Bridge)
-================================ */
+/* Status readout */
 #status {
   min-width: 220px !important;
   border-radius: 12px !important;
   padding: 10px 12px !important;
-
   background: rgba(0,0,0,0.72) !important;
   border: 1px solid rgba(0,255,255,0.6) !important;
   color: #00ffff !important;
-
   box-shadow: 0 0 18px rgba(0,255,255,0.18) !important;
 }
+#status .label { opacity: 0.75 !important; }
 
-#status .label {
-  opacity: 0.75 !important;
-}
-
-/* ================================
-   DRIVER BUTTONS
-================================ */
+/* Buttons */
 #driverOverlay button {
   border: 0 !important;
   border-radius: 999px !important;
   padding: 10px 14px !important;
-
   cursor: pointer !important;
-
   background: #00ffff !important;
   color: #000 !important;
   font-weight: 800 !important;
-
   box-shadow: 0 0 14px rgba(0,255,255,0.35) !important;
 }
+#driverOverlay button.hidden { display: none !important; }
 
-#driverOverlay button.hidden {
-  display: none !important;
+/* Voice popup (driver-owned) */
+#voicePopup {
+  width: 360px !important;
+  max-height: 340px !important;
+  overflow: auto !important;
+  border-radius: 12px !important;
+  padding: 10px !important;
+  background: rgba(0,0,0,0.88) !important;
+  border: 1px solid rgba(0,255,255,0.6) !important;
+  color: #00ffff !important;
+  box-shadow: 0 0 18px rgba(0,255,255,0.18) !important;
 }
-
-/* ================================
-   SAFETY: ENSURE DRIVER ALWAYS CLICKS
-================================ */
-#driverOverlay * {
-  pointer-events: auto !important;
+#voicePopupHeader {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 8px !important;
+}
+#voicePopupHeader .title {
+  opacity: 0.85 !important;
+  font-weight: 800 !important;
+}
+#voicePopupClose {
+  background: transparent !important;
+  color: #00ffff !important;
+  border: 1px solid rgba(0,255,255,0.35) !important;
+  border-radius: 10px !important;
+  padding: 6px 10px !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+}
+.voiceItem {
+  padding: 8px 10px !important;
+  border-radius: 10px !important;
+  cursor: pointer !important;
+  border: 1px solid rgba(0,255,255,0.18) !important;
+  margin-bottom: 6px !important;
+}
+.voiceItem:hover {
+  border-color: rgba(0,255,255,0.55) !important;
 }
