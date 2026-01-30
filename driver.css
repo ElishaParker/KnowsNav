@@ -38,7 +38,8 @@ body.snazy-front #eyeFrame {
 }
 
 /* ================================
-   CLICK PULSE ANIMATION (parent cursor)
+   PARENT CURSOR (OVER POPUP)
+   Fixes: cursor under voice menu
 ================================ */
 @keyframes knowsnavPulse {
   0%   { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
@@ -46,10 +47,6 @@ body.snazy-front #eyeFrame {
   100% { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
 }
 
-/* ================================
-   PARENT CURSOR (sits above popup)
-   This fixes: cursor under popup
-================================ */
 #driverCursor {
   position: fixed !important;
   left: 0px;
@@ -62,7 +59,7 @@ body.snazy-front #eyeFrame {
   transform: translate(-50%, -50%);
   pointer-events: none !important;
 
-  /* MUST be above #voicePopup */
+  /* MUST be above popup */
   z-index: 2147483647 !important;
   display: none;
 }
@@ -95,14 +92,13 @@ body.snazy-front #eyeFrame {
 #driverControls button.hidden { display: none !important; }
 
 /* ================================
-   LEFT HUD: Status panel
-   Stacked above controls, bottom-left
+   LEFT HUD: Status panel (bottom-left)
 ================================ */
 #driverStatus {
   position: fixed !important;
   left: 12px !important;
   right: auto !important;
-  bottom: 74px !important; /* sits above the SnazyCam Controls button */
+  bottom: 74px !important;
 
   z-index: 2147483646 !important;
 
@@ -128,8 +124,6 @@ body.snazy-front #eyeFrame {
 
 /* ================================
    Voice popup (driver-owned)
-   Injected into #driverStatus
-   MUST be under #driverCursor
 ================================ */
 #voicePopup {
   width: 360px !important;
@@ -143,10 +137,7 @@ body.snazy-front #eyeFrame {
   box-shadow: 0 0 18px rgba(0,255,255,0.18) !important;
 
   position: relative !important;
-
-  /* BELOW driverCursor, ABOVE the rest */
-  z-index: 2147483646 !important;
-
+  z-index: 2147483646 !important; /* under #driverCursor */
   pointer-events: auto !important;
 }
 
