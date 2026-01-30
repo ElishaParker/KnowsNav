@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>KnowsNav Driver v2</title>
+  <link rel="stylesheet" href="driver_v2.css" />
+</head>
+<body>
+
+  <!-- IFRAME LAYERS -->
+  <!-- Update these src paths to your real files -->
+  <iframe id="snazyFrame" src="./snazy.html"></iframe>
+  <iframe id="eyeFrame"   src="./index.html"></iframe>
+
+  <!-- PARENT CURSOR (over popup + HUD when needed) -->
+  <div id="driverCursor"></div>
+
+  <!-- LEFT HUD: Status -->
+  <div id="driverStatus">
+    <div id="status">
+      <div><span class="label">Bridge:</span> <span id="bridgeState">…</span></div>
+      <div><span class="label">Feed:</span> <span id="feedState">…</span></div>
+      <div><span class="label">X/Y:</span> <span id="xyState">…</span></div>
+      <div><span class="label">STT:</span> <span id="sttState">off</span></div>
+    </div>
+  </div>
+
+  <!-- LEFT HUD: Controls -->
+  <div id="driverControls">
+    <button id="btnSnazy" class="hidden" type="button">SnazyCam Controls</button>
+    <button id="btnEye" type="button">Back to EyeWrite</button>
+    <button id="btnStt" type="button">STT OFF</button>
+  </div>
+
+  <script src="driver_v2.js"></script>
+</body>
+</html>
