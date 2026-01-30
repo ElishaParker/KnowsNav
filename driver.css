@@ -37,11 +37,35 @@ body.snazy-front #eyeFrame {
   pointer-events: none !important;
 }
 
+/* =========================================================
+   DRIVER HUD SPLIT INTO TWO ANCHORS
+   - Left: SnazyCam Controls (BOTTOM-LEFT)
+   - Right: Status + Voice Popup (BOTTOM-RIGHT)
+========================================================= */
+
 /* ================================
-   DRIVER OVERLAY (BOTTOM-RIGHT)
-   Status stacked ABOVE button
+   LEFT HUD (BOTTOM-LEFT)
+   SnazyCam Controls / Back to EyeWrite
 ================================ */
-#driverOverlay {
+#driverControls {
+  position: fixed !important;
+  left: 12px !important;
+  bottom: 12px !important;
+  z-index: 2147483647 !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+
+  pointer-events: auto !important;
+}
+
+/* ================================
+   RIGHT HUD (BOTTOM-RIGHT)
+   Status box + Voice Popup
+================================ */
+#driverStatus {
   position: fixed !important;
   right: 12px !important;
   bottom: 12px !important;
@@ -55,20 +79,11 @@ body.snazy-front #eyeFrame {
   pointer-events: auto !important;
 }
 
-/* Status readout */
-#status {
-  min-width: 220px !important;
-  border-radius: 12px !important;
-  padding: 10px 12px !important;
-  background: rgba(0,0,0,0.72) !important;
-  border: 1px solid rgba(0,255,255,0.6) !important;
-  color: #00ffff !important;
-  box-shadow: 0 0 18px rgba(0,255,255,0.18) !important;
-}
-#status .label { opacity: 0.75 !important; }
-
-/* Buttons */
-#driverOverlay button {
+/* ================================
+   BUTTONS (shared styling)
+================================ */
+#driverControls button,
+#driverStatus button {
   border: 0 !important;
   border-radius: 999px !important;
   padding: 10px 14px !important;
@@ -78,30 +93,63 @@ body.snazy-front #eyeFrame {
   font-weight: 800 !important;
   box-shadow: 0 0 14px rgba(0,255,255,0.35) !important;
 }
-#driverOverlay button.hidden { display: none !important; }
 
-/* Voice popup (driver-owned) */
-#voicePopup {
-  width: 360px !important;
-  max-height: 340px !important;
-  overflow: auto !important;
+.hidden { display: none !important; }
+
+/* ================================
+   STATUS READOUT (BOTTOM-RIGHT)
+================================ */
+#status {
+  min-width: 220px !important;
   border-radius: 12px !important;
-  padding: 10px !important;
-  background: rgba(0,0,0,0.88) !important;
+  padding: 10px 12px !important;
+  background: rgba(0,0,0,0.72) !important;
   border: 1px solid rgba(0,255,255,0.6) !important;
   color: #00ffff !important;
   box-shadow: 0 0 18px rgba(0,255,255,0.18) !important;
 }
+
+#status .label { opacity: 0.75 !important; }
+
+/* ================================
+   VOICE POPUP (driver-owned)
+   MUST be clickable + highlightable
+================================ */
+#voicePopup {
+  position: relative !important;
+  z-index: 2147483647 !important;
+  pointer-events: auto !important;
+
+  width: 360px !important;
+  max-height: 340px !important;
+  overflow: auto !important;
+
+  border-radius: 12px !important;
+  padding: 10px !important;
+
+  background: rgba(0, 0, 0, 0.92) !important;
+  border: 1px solid rgba(0,255,255,0.6) !important;
+  color: #00ffff !important;
+
+  box-shadow: 0 0 18px rgba(0,255,255,0.18) !important;
+}
+
+#voicePopup * {
+  pointer-events: auto !important;
+}
+
 #voicePopupHeader {
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
   margin-bottom: 8px !important;
 }
+
 #voicePopupHeader .title {
   opacity: 0.85 !important;
   font-weight: 800 !important;
 }
+
 #voicePopupClose {
   background: transparent !important;
   color: #00ffff !important;
@@ -111,13 +159,26 @@ body.snazy-front #eyeFrame {
   cursor: pointer !important;
   box-shadow: none !important;
 }
+
 .voiceItem {
-  padding: 8px 10px !important;
+  user-select: none !important;
+  color: #00ffff !important;
+
+  padding: 10px 12px !important;
   border-radius: 10px !important;
   cursor: pointer !important;
-  border: 1px solid rgba(0,255,255,0.18) !important;
-  margin-bottom: 6px !important;
+
+  border: 1px solid rgba(0,255,255,0.22) !important;
+  background: rgba(0,0,0,0.15) !important;
+
+  margin-bottom: 8px !important;
 }
+
 .voiceItem:hover {
-  border-color: rgba(0,255,255,0.55) !important;
+  border-color: rgba(0,255,255,0.80) !important;
+  background: rgba(0,255,255,0.12) !important;
+}
+
+.voiceItem:active {
+  background: rgba(0,255,255,0.22) !important;
 }
