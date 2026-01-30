@@ -5,79 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>KnowsNav Driver</title>
 
-  <!-- HARD FORCE FULLSCREEN (no external css dependency) -->
-  <style>
-    html, body {
-      margin: 0 !important;
-      padding: 0 !important;
-      width: 100% !important;
-      height: 100% !important;
-      overflow: hidden !important;
-      background: #000 !important;
-    }
-
-    #snazyFrame, #eyeFrame {
-      position: fixed !important;
-      left: 0 !important;
-      top: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
-      border: 0 !important;
-      display: block !important;
-    }
-
-    #snazyFrame { z-index: 10 !important; }
-    #eyeFrame   { z-index: 20 !important; }
-
-    body.snazy-front #snazyFrame { z-index: 30 !important; }
-    body.snazy-front #eyeFrame   {
-      z-index: 20 !important;
-      pointer-events: none !important;
-    }
-
-    /* Always-on-top overlay (moved up into the empty space) */
-    #driverOverlay{
-      position:fixed !important;
-      right:24px !important;
-      bottom:170px !important;
-      z-index:2147483647 !important;
-      font-family:ui-monospace, Menlo, Consolas, monospace !important;
-
-      display:flex !important;
-      flex-direction:column !important;
-      align-items:flex-end !important;
-      gap:10px !important;
-    }
-
-    #driverOverlay button{
-      border:0 !important;
-      border-radius:999px !important;
-      padding:10px 14px !important;
-      cursor:pointer !important;
-      background:#00ffff !important;
-      color:#000 !important;
-      font-weight:800 !important;
-      box-shadow:0 0 14px rgba(0,255,255,0.35) !important;
-    }
-
-    #driverOverlay button.hidden{
-      display:none !important;
-    }
-
-    #status{
-      min-width:220px !important;
-      border-radius:12px !important;
-      padding:10px 12px !important;
-      background:rgba(0,0,0,0.72) !important;
-      border:1px solid rgba(0,255,255,0.6) !important;
-      color:#00ffff !important;
-      box-shadow:0 0 18px rgba(0,255,255,0.18) !important;
-    }
-
-    #status .label{
-      opacity:0.75 !important;
-    }
-  </style>
+  <!-- Use external driver.css (recommended so HTML stays clean) -->
+  <link rel="stylesheet" href="./driver.css" />
 </head>
 
 <body>
@@ -88,16 +17,19 @@
   <!-- Foreground layer: EyeWrite -->
   <iframe id="eyeFrame" src="./eyewrite/" title="EyeWrite"></iframe>
 
-  <!-- Always-on-top driver overlay -->
-  <div id="driverOverlay">
+  <!-- LEFT HUD: bottom-left (SnazyCam controls stack) -->
+  <div id="driverControls">
+    <button id="btnSnazy">SnazyCam Controls</button>
+    <button id="btnEye" class="hidden">Back to EyeWrite</button>
+  </div>
+
+  <!-- RIGHT HUD: bottom-right (Status + voice popup injects above this) -->
+  <div id="driverStatus">
     <div id="status">
       <div><span class="label">Bridge:</span> <span id="bridgeState">booting…</span></div>
       <div><span class="label">Feed:</span> <span id="feedState">waiting…</span></div>
       <div><span class="label">X/Y:</span> <span id="xyState">—</span></div>
     </div>
-
-    <button id="btnSnazy">SnazyCam Controls</button>
-    <button id="btnEye" class="hidden">Back to EyeWrite</button>
   </div>
 
   <script src="./driver.js"></script>
