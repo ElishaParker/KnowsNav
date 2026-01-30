@@ -75,7 +75,10 @@ body.snazy-front #eyeFrame {
   position: fixed !important;
   left: 12px !important;
   bottom: 12px !important;
-  z-index: 2147483646 !important;
+
+  /* EDIT: raise HUD above everything else */
+  z-index: 2147483647 !important;
+
   pointer-events: auto !important;
 }
 
@@ -100,7 +103,8 @@ body.snazy-front #eyeFrame {
   right: auto !important;
   bottom: 74px !important;
 
-  z-index: 2147483646 !important;
+  /* EDIT: raise HUD above everything else */
+  z-index: 2147483647 !important;
 
   display: flex !important;
   flex-direction: column !important;
@@ -137,7 +141,10 @@ body.snazy-front #eyeFrame {
   box-shadow: 0 0 18px rgba(0,255,255,0.18) !important;
 
   position: relative !important;
-  z-index: 2147483646 !important; /* under #driverCursor */
+
+  /* EDIT: keep popup below driver cursor, but above HUD stack */
+  z-index: 2147483646 !important;
+
   pointer-events: auto !important;
 }
 
@@ -179,4 +186,13 @@ body.snazy-front #eyeFrame {
 .voiceItem.driver-hover {
   border-color: rgba(0,255,255,0.75) !important;
   box-shadow: 0 0 10px rgba(0,255,255,0.30) !important;
+}
+
+/* ================================
+   EDIT: Driver HUD hover highlight
+   (used by hoverControllerHUD)
+================================ */
+.driver-hover{
+  outline: 2px solid rgba(0,255,255,0.95) !important;
+  box-shadow: 0 0 10px rgba(0,255,255,0.35) !important;
 }
