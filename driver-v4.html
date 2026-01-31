@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KnowsNav Driver V4</title>
+  <!-- Version 4 driver stylesheet -->
+  <link rel="stylesheet" href="./driver-v4.css" />
+</head>
+
+<body>
+
+  <!-- Background layer: SnazyCam -->
+  <iframe id="snazyFrame" src="./snazycam/" title="SnazyCam"></iframe>
+
+  <!-- Foreground layer: EyeWrite -->
+  <iframe id="eyeFrame" src="./eyewrite/" title="EyeWrite"></iframe>
+
+  <!-- Bottom-left HUD for controls -->
+  <div id="driverControls">
+    <button id="btnSnazy">SnazyCam Controls</button>
+    <button id="btnEye" class="hidden">Back to EyeWrite</button>
+    <!-- New: quick save button -->
+    <button id="btnSave" class="hidden">Save Note</button>
+    <!-- New: speech to text toggle -->
+    <button id="btnMic" class="hidden">Mic</button>
+  </div>
+
+  <!-- Bottom-left status panel (stacked above controls) -->
+  <div id="driverStatus">
+    <div id="status">
+      <div><span class="label">Bridge:</span> <span id="bridgeState">booting…</span></div>
+      <div><span class="label">Feed:</span> <span id="feedState">waiting…</span></div>
+      <div><span class="label">X/Y:</span> <span id="xyState">—</span></div>
+    </div>
+  </div>
+
+  <!-- Version 4 driver script -->
+  <script src="./driver-v4.js"></script>
+</body>
+</html>
