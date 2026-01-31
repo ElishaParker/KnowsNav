@@ -63,3 +63,12 @@ integrations, please contact:
 📧 elishaparker@hotmail.com
 
 KnowsNav exists to expand access — not extract value.
+
+Disclaimer
+
+This Software is provided “AS IS”, without warranty of any kind, express or
+implied, including but not limited to warranties of merchantability, fitness for
+a particular purpose, or non-infringement.
+
+The author shall not be held liable for any damages arising from the use or
+inability to use this Software.
