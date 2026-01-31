@@ -1,25 +1,101 @@
-Copyright © 2025 Elisha Blue Parker. All rights reserved.
+Copyright © 2025 Elisha B. Parker.
+All Rights Reserved.
 
-EyeWrite v1.1 — Human-AI Hands-Free Writing Interface
+This software and its source code (the “Software”) are the exclusive
+intellectual property of Elisha B. Parker.
 
-This software and its associated assets (code, design, concept, and documentation)
-are released under a hybrid license:
+By accessing, using, or interacting with the Software, you agree to the
+following terms and conditions:
 
-1. Non-Commercial Use — You may use, copy, and modify EyeWrite for personal or
-   educational purposes, provided that proper attribution is given to
-   “Elisha Blue Parker / EyeWrite Project”.
+────────────────────────────────────────────────────────────
 
-2. Share Alike — Derivative works must be distributed under the same
-   Non-Commercial Share-Alike terms.
+1. License Grant
 
-3. No Unauthorized Commercial Use — Commercial redistribution, sale,
-   integration into paid products, or corporate deployment requires prior
-   written consent from the author.
+You are granted a limited, non-exclusive, non-transferable, and revocable
+license to access and use the Software solely for its intended purpose,
+as provided by the author.
 
-4. Attribution — Any public use must credit the project:
-   “Built with EyeWrite by Elisha Blue Parker (https://elishaparker.github.io/EyeWrite)”.
+This license does not grant any rights to the source code beyond viewing
+it as provided. No other rights are granted, whether expressly or by
+implication.
 
-5. Warranty Disclaimer — Provided “as is”, without warranty of any kind.
+────────────────────────────────────────────────────────────
 
-For commercial licensing inquiries:
-contact → elishaparker@hotmail.com
+2. Restrictions
+
+You may NOT:
+
+• Copy, reproduce, or redistribute the Software or any portion of it  
+• Modify, adapt, translate, or create derivative works based on the Software  
+• Decompile, reverse engineer, disassemble, or otherwise attempt to derive
+  the source code, logic, or underlying structure of the Software  
+• Use the Software, in whole or in part, for commercial gain or within any
+  for-profit product, service, or organization without explicit written
+  permission  
+• Remove, alter, or obscure any copyright notices, trademarks, or
+  attributions  
+
+────────────────────────────────────────────────────────────
+
+3. Ownership
+
+All title, ownership rights, and intellectual property rights in and to the
+Software remain solely with Elisha B. Parker.
+
+No ownership, license, or rights are transferred under this agreement
+except for the limited right to use the Software as explicitly stated.
+
+────────────────────────────────────────────────────────────
+
+4. Disclaimer
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR INABILITY
+TO USE THE SOFTWARE.
+
+────────────────────────────────────────────────────────────
+
+5. Termination
+
+This license will automatically terminate if you violate any of these
+terms.
+
+Upon termination, you must immediately cease all use of the Software.
+
+────────────────────────────────────────────────────────────
+
+6. Permissions and Contact
+
+Any use of the Software outside the scope of this license — including
+commercial use, redistribution, or modification — requires explicit
+prior written permission from the author.
+
+For questions, licensing inquiries, or permission requests, contact:
+
+Elisha B. Parker  
+Email: elishaparker@hotmail.com
+
+────────────────────────────────────────────────────────────
+
+Optional Support
+
+This Software is provided freely to support accessibility, learning, and
+creative exploration.
+
+If you find it useful and wish to support continued development and
+maintenance, voluntary donations are appreciated:
+
+PayPal: https://paypal.me/iamvibration
+
+Donations are entirely optional and do not grant any additional rights,
+permissions, or ownership.
+
+────────────────────────────────────────────────────────────
+
+By accessing or using the Software, you acknowledge that you have read,
+understood, and agree to be bound by the terms of this license.
