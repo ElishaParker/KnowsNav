@@ -1,4 +1,4 @@
-🌱 KnowsNav – Accessibility-First Description 
+🌱 KnowsNav – Accessibility-First Description
 
 KnowsNav is an accessibility-focused, hands-free interaction technology designed to help individuals with disabilities navigate, write, and communicate on the internet without the use of a mouse or keyboard.
 
@@ -10,58 +10,56 @@ KnowsNav is free to use and designed to expand digital access through thoughtful
 
 Initial KnowsNav release – proprietary, free to use
 
-# KnowsNav
+KnowsNav
 
 KnowsNav is a free, hands-free accessibility system that enables users to
 navigate and write using facial movement.
 
-It combines two independent technologies — **EyeWrite** and **SnazyCam** —
+It combines two independent technologies — EyeWrite and SnazyCam —
 through a dedicated integration driver that links cursor data while preserving
 each underlying system intact and unmodified.
 
 KnowsNav is designed for accessibility, autonomy, and dignity in human–computer
 interaction.
 
----
+Key Principles
 
-## Key Principles
+Hands-free navigation and text entry
 
-- Hands-free navigation and text entry
-- Facial movement–driven cursor control
-- Dwell-based interaction (no mouse or keyboard required)
-- Non-invasive architecture that preserves original subsystems
-- Clear separation between core technologies and integration logic
+Facial movement–driven cursor control
 
----
+Dwell-based interaction (no mouse or keyboard required)
 
-## Free to Use
+Non-invasive architecture that preserves original subsystems
 
-KnowsNav is **free to use** for personal, educational, and non-commercial
+Clear separation between core technologies and integration logic
+
+Free to Use
+
+KnowsNav is free to use for personal, educational, and non-commercial
 purposes.
 
-Support for the project is voluntary. If you find KnowsNav valuable, you are
-encouraged (but never required) to support continued development through
-official channels.
+Support for the project is entirely voluntary. If you find KnowsNav valuable
+and wish to help support continued development, maintenance, and accessibility
+improvements, optional donations are appreciated:
 
----
+👉 PayPal: https://paypal.me/iamvibration
 
-## License
+Donations are never required and do not grant any additional rights,
+permissions, or ownership.
 
-KnowsNav is **not open source**.
+License
+
+KnowsNav is not open source.
 
 All rights to the codebase and architecture are reserved by the creator.
-Use of this software is governed by the terms in `LICENSE.txt`.
+Use of this software is governed by the terms in LICENSE.txt.
 
----
-
-## Developer Contact
+Developer Contact
 
 For developer inquiries, research collaboration, licensing, or approved
 integrations, please contact:
 
-📧 **elishaparker@hotmail.com**
-
----
+📧 elishaparker@hotmail.com
 
 KnowsNav exists to expand access — not extract value.
-
