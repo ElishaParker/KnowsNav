@@ -1,1 +1,92 @@
+KnowsNav License
+© 2026 Elisha Blue Parker
+All rights reserved.
+
+────────────────────────────────────────────────────────────
+
+PERMITTED USE
+
+Permission is hereby granted, free of charge, to any person accessing the
+KnowsNav project (the “Software”) to use the Software exclusively through
+the official, author-provided distribution, including the publicly hosted
+browser-based application.
+
+This permission is granted for personal, educational, research, and
+accessibility purposes only.
+
+No payment is required to use the Software.
+
+────────────────────────────────────────────────────────────
+
+RESTRICTIONS
+
+1. Ownership  
+   The Software, including all source code, structure, design, logic,
+   architecture, and concepts, is and remains the sole intellectual
+   property of:
+
+   Elisha Blue Parker
+
+2. No Modification  
+   You may NOT copy, modify, adapt, translate, fork, or create derivative
+   works based on the Software or its source code, in whole or in part.
+
+3. No Redistribution  
+   You may NOT redistribute, mirror, rehost, bundle, embed, or otherwise
+   make the Software or its source code available through any means other
+   than the original author-provided access point.
+
+4. No Commercial Use  
+   The Software may NOT be used for any commercial purpose, including but
+   not limited to:
+   • Selling or licensing the Software  
+   • Offering it as part of a paid product or service  
+   • Using it in a for-profit business, organization, or workflow  
+   • Bundling it with paid hardware or software  
+
+5. No Rebranding or Misrepresentation  
+   You may not remove, obscure, or alter author attribution.
+   You may not present the Software, its functionality, or its concepts as
+   your own work.
+
+6. No Trademark or Endorsement Rights  
+   This license does not grant permission to use the names “KnowsNav”,
+   “EyeWrite”, or the author’s name or likeness for branding, marketing,
+   endorsement, or promotional purposes.
+
+7. No Warranty  
+   THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
+
+────────────────────────────────────────────────────────────
+
+COMMERCIAL OR SPECIAL USE
+
+Any use of the Software outside the permissions above — including
+modification, redistribution, or commercial use — requires explicit
+prior written permission from the author.
+
+Contact:
+Email: elishaparker@hotmail.com
+
+────────────────────────────────────────────────────────────
+
+OPTIONAL SUPPORT
+
+KnowsNav is provided freely to support accessibility, independence, and
+human-centered interaction. If you find this project helpful and wish to
+support its continued availability and development, voluntary donations
+are appreciated:
+
+PayPal: https://paypal.me/iamvibration
+
+Donations are optional and do not grant additional rights or permissions.
+
+────────────────────────────────────────────────────────────
+
+By accessing or using the Software, you acknowledge that you have read,
+understood, and agree to be bound by the terms of this license.
 
