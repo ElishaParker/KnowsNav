@@ -7,7 +7,6 @@
 
   <!-- Base styles -->
   <link rel="stylesheet" href="./driver.css" />
-
   <!-- Mobile overrides -->
   <link rel="stylesheet" href="./patch_mobile_driver.css" />
 </head>
@@ -20,13 +19,13 @@
   <!-- Foreground layer: EyeWrite -->
   <iframe id="eyeFrame" src="./eyewrite/" title="EyeWrite"></iframe>
 
-  <!-- LEFT HUD: bottom-left (SnazyCam controls stack) -->
+  <!-- LEFT HUD: SnazyCam controls -->
   <div id="driverControls">
     <button id="btnSnazy">SnazyCam Controls</button>
     <button id="btnEye" class="hidden">Back to EyeWrite</button>
   </div>
 
-  <!-- RIGHT HUD: bottom-right (Status + voice popup injects above this) -->
+  <!-- RIGHT HUD: Status -->
   <div id="driverStatus">
     <div id="status">
       <div><span class="label">Bridge:</span> <span id="bridgeState">booting…</span></div>
@@ -35,13 +34,10 @@
     </div>
   </div>
 
-  <!-- Base benchmark driver (unchanged) -->
+  <!-- Existing driver and patches -->
   <script src="./driver.js"></script>
-
-  <!-- Existing patch drivers -->
   <script src="./drivers/patch_save.js"></script>
   <script src="./drivers/patch_stt.js"></script>
-
   <!-- Mobile patch script -->
   <script src="./patch_mobile.js"></script>
 </body>
