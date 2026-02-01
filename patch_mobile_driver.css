@@ -1,0 +1,34 @@
+/* Mobile overrides for KnowsNav driver.
+ *
+ * This stylesheet should be loaded after driver.css.
+ * It uses the --knowsnav-app-height CSS variable set by patch_mobile.js
+ * to fix the viewport sizing issues on mobile devices.
+ */
+
+:root {
+  /* Fallback value in case patch_mobile.js fails to set the variable. */
+  --knowsnav-app-height: 100vh;
+}
+
+/* Override the height of the SnazyCam and EyeWrite frames */
+#snazyFrame,
+#eyeFrame {
+  height: var(--knowsnav-app-height) !important;
+  width: 100vw !important;
+}
+
+/* Optional: tweak HUD positioning for small screens */
+body.mobile #driverControls,
+body.mobile #driverStatus {
+  /* push controls a bit up to avoid overlapping mobile browser UI */
+  bottom: 16px !important;
+}
+
+/* If needed, you can hide or resize elements on very small screens.
+   This example reduces the status panel font size on narrow devices. */
+@media (max-width: 480px) {
+  #driverStatus #status {
+    font-size: 12px !important;
+    min-width: 180px !important;
+  }
+}
