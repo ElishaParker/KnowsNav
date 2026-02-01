@@ -1,21 +1,23 @@
 /*
  * Enhanced mobile viewport controller for KnowsNav.
  *
- * Computes the true visible viewport height, updates a CSS custom
- * property on the root element, injects responsive overrides into
- * EyeWrite’s document, and hides the native mobile keyboard in
- * EyeWrite’s contenteditable area.
+ * This script computes the true visible viewport height (using the smaller
+ * of window.innerHeight and visualViewport.height), updates a root-level
+ * CSS variable, injects responsive sizing into the EyeWrite iframe, and
+ * suppresses the native mobile keyboard on EyeWrite’s text area.  It also
+ * adapts the keyboard/text ratio for very small screens so controls aren’t
+ * tiny.  The code re-runs whenever the viewport changes or the iframe reloads.
  */
+
 (function () {
-  // Return the visible viewport height (visualViewport if available)
+  // Determine the available viewport height without browser chrome.
   function getViewportHeight() {
-    if (window.visualViewport && typeof window.visualViewport.height === 'number') {
-      return window.visualViewport.height;
-    }
-    return window.innerHeight;
+    var inner = window.innerHeight;
+    var visual = (window.visualViewport && typeof window.visualViewport.height === 'number') ? window.visualViewport.height : Infinity;
+    return Math.min(inner, visual);
   }
 
-  // Inject overrides and disable the OS keyboard inside EyeWrite
+  // Inject CSS overrides and disable the OS keyboard inside EyeWrite.
   function patchEyeWrite(frame, appHeight) {
     if (!frame || !frame.contentWindow) return;
     const eyeWin = frame.contentWindow;
@@ -24,7 +26,12 @@
 
     eyeDoc.documentElement.style.setProperty('--knowsnav-app-height', `${appHeight}px`);
 
-    // Create/update a style tag that overrides the vh-dependent rules
+    // Adjust ratios: phones under ~700 px tall get bigger keyboard and text area.
+    const smallScreen = appHeight < 700;
+    const ratioKeyboard = smallScreen ? 0.5 : 0.4;
+    const ratioText    = smallScreen ? 0.45 : 0.36;
+    const ratioScroll  = smallScreen ? (ratioKeyboard + 0.04) : 0.41;
+
     let style = eyeDoc.getElementById('__knowsnav_mobile_style');
     if (!style) {
       style = eyeDoc.createElement('style');
@@ -42,64 +49,76 @@
         overflow: hidden !important;
       }
       #keyboard {
-        height: calc(var(--knowsnav-app-height) * 0.4) !important;
-        min-height: calc(var(--knowsnav-app-height) * 0.4) !important;
-        max-height: calc(var(--knowsnav-app-height) * 0.4) !important;
+        height: calc(var(--knowsnav-app-height) * ${ratioKeyboard}) !important;
+        min-height: calc(var(--knowsnav-app-height) * ${ratioKeyboard}) !important;
+        max-height: calc(var(--knowsnav-app-height) * ${ratioKeyboard}) !important;
       }
       #textContainer {
-        height: calc(var(--knowsnav-app-height) - (var(--knowsnav-app-height) * 0.36) - 64px) !important;
-        min-height: calc(var(--knowsnav-app-height) - (var(--knowsnav-app-height) * 0.36) - 64px) !important;
-        max-height: calc(var(--knowsnav-app-height) - (var(--knowsnav-app-height) * 0.36) - 64px) !important;
+        height: calc(var(--knowsnav-app-height) - (var(--knowsnav-app-height) * ${ratioText}) - 64px) !important;
+        min-height: calc(var(--knowsnav-app-height) - (var(--knowsnav-app-height) * ${ratioText}) - 64px) !important;
+        max-height: calc(var(--knowsnav-app-height) - (var(--knowsnav-app-height) * ${ratioText}) - 64px) !important;
       }
       #scrollDown {
-        bottom: calc(var(--knowsnav-app-height) * 0.41) !important;
+        bottom: calc(var(--knowsnav-app-height) * ${ratioScroll}) !important;
       }
     `;
 
-    // Mark the contenteditable as manual keyboard and hide the OS keyboard on focus/touch
+    // Suppress the native mobile keyboard on the contenteditable div.
     try {
       const textArea = eyeDoc.getElementById('textArea');
       if (textArea) {
-        textArea.setAttribute('virtualkeyboardpolicy', 'manual'); // requires Chrome ≥116:contentReference[oaicite:1]{index=1}
         textArea.setAttribute('inputmode', 'none');
-        const hideVK = () => {
-          try {
-            const vk = eyeWin.navigator && eyeWin.navigator.virtualKeyboard;
-            if (vk && typeof vk.hide === 'function') vk.hide();
-          } catch {}
-        };
-        textArea.removeEventListener('focus', hideVK);
-        textArea.addEventListener('focus', hideVK);
-        textArea.removeEventListener('touchstart', hideVK);
-        textArea.addEventListener('touchstart', hideVK);
+        textArea.setAttribute('virtualkeyboardpolicy', 'manual');
+
+        if (!textArea.__knowsnav_onFocus) {
+          textArea.__knowsnav_onFocus = function (ev) {
+            try {
+              ev.preventDefault();
+              ev.stopPropagation();
+              textArea.blur();
+              const vk = eyeWin.navigator && eyeWin.navigator.virtualKeyboard;
+              if (vk && typeof vk.hide === 'function') {
+                vk.hide();
+              }
+            } catch {}
+          };
+        }
+        if (!textArea.__knowsnav_onTouchStart) {
+          textArea.__knowsnav_onTouchStart = function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+          };
+        }
+        textArea.removeEventListener('focus', textArea.__knowsnav_onFocus);
+        textArea.addEventListener('focus', textArea.__knowsnav_onFocus);
+        textArea.removeEventListener('touchstart', textArea.__knowsnav_onTouchStart);
+        textArea.addEventListener('touchstart', textArea.__knowsnav_onTouchStart);
       }
     } catch {
-      /* do nothing if we can’t access the element or API */
+      // If we can’t access the text area or VirtualKeyboard API, ignore.
     }
   }
 
-  // Update sizes and propagate them into EyeWrite
+  // Recompute the viewport height and update both driver and EyeWrite.
   function updateAppSizing() {
     const vh = getViewportHeight();
     document.documentElement.style.setProperty('--knowsnav-app-height', `${vh}px`);
     const eyeFrame = document.getElementById('eyeFrame');
     if (eyeFrame) {
-      try {
-        patchEyeWrite(eyeFrame, vh);
-      } catch {}
+      try { patchEyeWrite(eyeFrame, vh); } catch {}
     }
   }
 
-  // Initial run
+  // Initial sizing and injection.
   updateAppSizing();
 
-  // Recalculate on resize/orientation
+  // Respond to viewport changes.
   window.addEventListener('resize', updateAppSizing);
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', updateAppSizing);
   }
 
-  // If the EyeWrite iframe reloads, reinject the overrides
+  // Reinjection when EyeWrite reloads.
   const eyeFrame = document.getElementById('eyeFrame');
   if (eyeFrame) {
     eyeFrame.addEventListener('load', () => {
@@ -107,7 +126,7 @@
     });
   }
 
-  // Add a class on touch devices once
+  // Mark body as mobile when pointer is coarse and width is small.
   try {
     const isMobile = window.matchMedia('(pointer: coarse) and (max-width: 768px)').matches;
     if (isMobile) document.body.classList.add('mobile');
