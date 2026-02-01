@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>KnowsNav Mobile Driver</title>
+
+  <!-- Base styles -->
+  <link rel="stylesheet" href="./driver.css" />
+
+  <!-- Mobile overrides -->
+  <link rel="stylesheet" href="./patch_mobile_driver.css" />
+</head>
+
+<body>
+
+  <!-- Background layer: SnazyCam -->
+  <iframe id="snazyFrame" src="./snazycam/" title="SnazyCam"></iframe>
+
+  <!-- Foreground layer: EyeWrite -->
+  <iframe id="eyeFrame" src="./eyewrite/" title="EyeWrite"></iframe>
+
+  <!-- LEFT HUD: bottom-left (SnazyCam controls stack) -->
+  <div id="driverControls">
+    <button id="btnSnazy">SnazyCam Controls</button>
+    <button id="btnEye" class="hidden">Back to EyeWrite</button>
+  </div>
+
+  <!-- RIGHT HUD: bottom-right (Status + voice popup injects above this) -->
+  <div id="driverStatus">
+    <div id="status">
+      <div><span class="label">Bridge:</span> <span id="bridgeState">booting…</span></div>
+      <div><span class="label">Feed:</span> <span id="feedState">waiting…</span></div>
+      <div><span class="label">X/Y:</span> <span id="xyState">—</span></div>
+    </div>
+  </div>
+
+  <!-- Base benchmark driver (unchanged) -->
+  <script src="./driver.js"></script>
+
+  <!-- Existing patch drivers -->
+  <script src="./drivers/patch_save.js"></script>
+  <script src="./drivers/patch_stt.js"></script>
+
+  <!-- Mobile patch script -->
+  <script src="./patch_mobile.js"></script>
+</body>
+</html>
